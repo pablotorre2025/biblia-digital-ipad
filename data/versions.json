@@ -11,16 +11,6 @@
       "folder": "biblias-originales"
     },
     {
-      "id": "rv60",
-      "name": "Reina-Valera 1960 (Alternativa)",
-      "language": "es",
-      "year": 1960,
-      "description": "Versión alternativa Reina-Valera 1960",
-      "filename": "rv60.json",
-      "format": "original",
-      "folder": "biblias-originales"
-    },
-    {
       "id": "nvi",
       "name": "Nueva Versión Internacional",
       "language": "es", 
@@ -122,19 +112,19 @@
     }
   ],
   "lastUpdated": "2024-11-06",
-  "totalVersions": 12,
+  "totalVersions": 11,
   "supportedFormats": ["original"],
   "notes": {
     "original": "Formato con estructura de arrays: { books: [{ name, chapters: [[{verse, text}]] }] }",
     "languages": {
-      "es": "Español - 12 versiones disponibles"
+      "es": "Español - 11 versiones disponibles"
     },
     "categories": {
-      "tradicionales": ["rv1960", "rv60"],
+      "tradicionales": ["rv1960"],
       "modernas": ["nvi", "ntv", "dhh"],
       "catolicas": ["nbj", "bj"],
-      "literales": ["blah", "nblh"],
-      "populares": ["pddpt"]
+      "literales": ["blah", "nblh", "bl95"],
+      "populares": ["pddpt", "nbh"]
     }
   }
 }
