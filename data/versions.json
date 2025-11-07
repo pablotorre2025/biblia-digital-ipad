@@ -1,0 +1,46 @@
+{
+  "versions": [
+    {
+      "id": "rvr1960",
+      "name": "Reina Valera 1960",
+      "language": "es",
+      "year": 1960,
+      "description": "Una de las traducciones más utilizadas en español",
+      "filename": "rvr1960.json"
+    },
+    {
+      "id": "nvi",
+      "name": "Nueva Versión Internacional",
+      "language": "es", 
+      "year": 1999,
+      "description": "Traducción moderna y fiel al texto original",
+      "filename": "nvi.json"
+    },
+    {
+      "id": "lbla",
+      "name": "La Biblia de las Américas",
+      "language": "es",
+      "year": 1986,
+      "description": "Traducción literal y precisa",
+      "filename": "lbla.json"
+    },
+    {
+      "id": "kjv",
+      "name": "King James Version",
+      "language": "en",
+      "year": 1611,
+      "description": "Classic English translation",
+      "filename": "kjv.json"
+    },
+    {
+      "id": "niv",
+      "name": "New International Version",
+      "language": "en",
+      "year": 1978,
+      "description": "Modern English translation",
+      "filename": "niv.json"
+    }
+  ],
+  "lastUpdated": "2024-11-06",
+  "totalVersions": 5
+}

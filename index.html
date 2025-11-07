@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Biblia Digital - Múltiples Versiones</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-content">
+            <h1>📖 Biblia Digital</h1>
+            <div class="header-controls">
+                <select id="versionSelector" class="version-selector">
+                    <option value="">Seleccionar versión...</option>
+                </select>
+                <button id="settingsBtn" class="icon-btn" title="Configuración">⚙️</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="book-navigation">
+        <div class="nav-content">
+            <select id="bookSelector" class="book-selector">
+                <option value="">Seleccionar libro...</option>
+            </select>
+            <select id="chapterSelector" class="chapter-selector">
+                <option value="">Cap...</option>
+            </select>
+            <div class="nav-buttons">
+                <button id="prevChapter" class="nav-btn" title="Capítulo anterior">◀</button>
+                <button id="nextChapter" class="nav-btn" title="Capítulo siguiente">▶</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="reading-area">
+            <div id="chapterTitle" class="chapter-title"></div>
+            <div id="verseContainer" class="verse-container">
+                <div class="welcome-message">
+                    <h2>Bienvenido a la Biblia Digital</h2>
+                    <p>Selecciona una versión y un libro para comenzar a leer.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Loading Spinner -->
+    <div id="loadingSpinner" class="loading-spinner hidden">
+        <div class="spinner"></div>
+        <p>Cargando...</p>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configuración</h3>
+                <button id="closeSettings" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label for="fontSize">Tamaño de fuente:</label>
+                    <input type="range" id="fontSize" min="14" max="24" value="16">
+                    <span id="fontSizeValue">16px</span>
+                </div>
+                <div class="setting-group">
+                    <label for="lineHeight">Altura de línea:</label>
+                    <input type="range" id="lineHeight" min="1.2" max="2.0" step="0.1" value="1.6">
+                    <span id="lineHeightValue">1.6</span>
+                </div>
+                <div class="setting-group">
+                    <label for="theme">Tema:</label>
+                    <select id="theme">
+                        <option value="light">Claro</option>
+                        <option value="dark">Oscuro</option>
+                        <option value="sepia">Sepia</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label>
+                        <input type="checkbox" id="showVerseNumbers"> Mostrar números de versículos
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span id="connectionStatus" class="status-offline">📡 Offline</span>
+        <span id="lastUpdate"></span>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/bible-data.js"></script>
+    <script src="js/ui.js"></script>
+    <script>
+        // Register service worker for offline functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/biblia-json/sw.js')
+                    .then((registration) => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
