@@ -1,12 +1,23 @@
 {
   "versions": [
     {
-      "id": "rvr1960",
-      "name": "Reina Valera 1960",
+      "id": "rv60",
+      "name": "Reina-Valera 1960",
       "language": "es",
       "year": 1960,
       "description": "Una de las traducciones más utilizadas en español",
-      "filename": "rvr1960.json"
+      "filename": "rv60.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "rvr1960",
+      "name": "Reina Valera 1960 (Formato App)",
+      "language": "es",
+      "year": 1960,
+      "description": "Versión de muestra en formato de aplicación",
+      "filename": "rvr1960.json",
+      "format": "app"
     },
     {
       "id": "nvi",
@@ -14,7 +25,9 @@
       "language": "es", 
       "year": 1999,
       "description": "Traducción moderna y fiel al texto original",
-      "filename": "nvi.json"
+      "filename": "nvi.json",
+      "format": "original",
+      "folder": "biblias-originales"
     },
     {
       "id": "lbla",
@@ -22,7 +35,9 @@
       "language": "es",
       "year": 1986,
       "description": "Traducción literal y precisa",
-      "filename": "lbla.json"
+      "filename": "lbla.json",
+      "format": "original",
+      "folder": "biblias-originales"
     },
     {
       "id": "kjv",
@@ -30,7 +45,9 @@
       "language": "en",
       "year": 1611,
       "description": "Classic English translation",
-      "filename": "kjv.json"
+      "filename": "kjv.json",
+      "format": "original",
+      "folder": "biblias-originales"
     },
     {
       "id": "niv",
@@ -38,9 +55,16 @@
       "language": "en",
       "year": 1978,
       "description": "Modern English translation",
-      "filename": "niv.json"
+      "filename": "niv.json",
+      "format": "original",
+      "folder": "biblias-originales"
     }
   ],
   "lastUpdated": "2024-11-06",
-  "totalVersions": 5
+  "totalVersions": 6,
+  "supportedFormats": ["original", "app"],
+  "notes": {
+    "original": "Formato con estructura de arrays: { books: [{ name, chapters: [[{verse, text}]] }] }",
+    "app": "Formato optimizado para la app: { BookName: { ChapterNum: { VerseNum: text } } }"
+  }
 }

@@ -3,6 +3,7 @@ class BibleDataManager {
     constructor() {
         this.versions = new Map();
         this.loadedBooks = new Set();
+        this.originalFormat = new Map(); // Para almacenar biblias en formato original
     }
 
     async loadVersionMetadata() {
@@ -22,8 +23,17 @@ class BibleDataManager {
         }
 
         try {
-            const response = await fetch(`./data/${versionId}.json`);
-            const data = await response.json();
+            // Primero intentar cargar desde biblias-originales
+            let data = await this.loadOriginalFormatBible(versionId);
+            
+            if (!data) {
+                // Fallback al formato antiguo
+                const response = await fetch(`./data/${versionId}.json`);
+                if (!response.ok) {
+                    throw new Error(`No se pudo cargar la versión ${versionId}`);
+                }
+                data = await response.json();
+            }
             
             this.versions.set(versionId, data);
             return data;
@@ -31,6 +41,57 @@ class BibleDataManager {
             console.error(`Error loading version ${versionId}:`, error);
             throw error;
         }
+    }
+
+    async loadOriginalFormatBible(versionId) {
+        try {
+            const response = await fetch(`./data/biblias-originales/${versionId}.json`);
+            if (!response.ok) {
+                return null; // No existe en formato original
+            }
+            
+            const originalData = await response.json();
+            
+            // Validar que tiene el formato correcto
+            if (!originalData.books || !Array.isArray(originalData.books)) {
+                throw new Error('Formato de biblia original inválido');
+            }
+            
+            // Guardar formato original
+            this.originalFormat.set(versionId, originalData);
+            
+            // Convertir al formato de la aplicación
+            const convertedData = this.convertOriginalFormat(originalData);
+            return convertedData;
+            
+        } catch (error) {
+            console.warn(`No se pudo cargar formato original para ${versionId}:`, error);
+            return null;
+        }
+    }
+
+    convertOriginalFormat(originalBible) {
+        const converted = {};
+        
+        originalBible.books.forEach(book => {
+            const bookName = book.name;
+            converted[bookName] = {};
+            
+            book.chapters.forEach((chapter, chapterIndex) => {
+                const chapterNum = chapterIndex + 1;
+                converted[bookName][chapterNum] = {};
+                
+                if (Array.isArray(chapter)) {
+                    chapter.forEach(verse => {
+                        if (verse && verse.verse && verse.text) {
+                            converted[bookName][chapterNum][verse.verse] = verse.text;
+                        }
+                    });
+                }
+            });
+        });
+        
+        return converted;
     }
 
     getBookList(versionId) {
