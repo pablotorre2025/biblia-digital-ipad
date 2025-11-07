@@ -18,7 +18,7 @@
             <h1>📖 Biblia Digital</h1>
             <div class="header-controls">
                 <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="Buscar en la Biblia..." class="search-input">
+                    <input type="text" id="searchInput" placeholder="Busca desde 3 letras... (ej: jesus)" class="search-input">
                     <button id="searchBtn" class="icon-btn" title="Buscar" onclick="simpleSearch()">🔍</button>
                 </div>
                 <select id="versionSelector" class="version-selector">
@@ -224,46 +224,77 @@
     </div>
 
     <script>
-        // Función de búsqueda simple que funciona inmediatamente
-        function simpleSearch() {
-            console.log('=== SIMPLE SEARCH STARTED ===');
+        // Función para normalizar texto (quitar acentos, convertir a minúsculas)
+        function normalizeText(text) {
+            return text
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Remover acentos
+                .replace(/[^a-z0-9\s]/g, ' ')    // Remover caracteres especiales
+                .replace(/\s+/g, ' ')            // Normalizar espacios
+                .trim();
+        }
+        
+        // Variable para debounce de búsqueda en tiempo real
+        let searchTimeout;
+        
+        // Función de búsqueda mejorada
+        function smartSearch(query = null) {
+            console.log('=== SMART SEARCH STARTED ===');
             
             const searchInput = document.getElementById('searchInput');
-            const query = searchInput.value.trim().toLowerCase();
+            let searchQuery = query || searchInput.value.trim();
             
-            console.log('Search query:', query);
+            console.log('Original query:', searchQuery);
             
-            if (query.length < 2) {
-                alert('Por favor, introduce al menos 2 caracteres para buscar.');
+            if (searchQuery.length < 3) {
+                closeSimpleSearch();
                 return;
             }
             
             // Verificar si hay una app cargada
             if (!window.bibleApp || !window.bibleApp.bibleData) {
-                alert('Por favor, selecciona y carga una versión de la Biblia primero.');
+                if (searchQuery.length >= 3) {
+                    alert('Por favor, selecciona y carga una versión de la Biblia primero.');
+                }
                 return;
             }
             
             const bibleData = window.bibleApp.bibleData;
             console.log('Bible data available:', !!bibleData);
-            console.log('Books available:', Object.keys(bibleData).slice(0, 3));
+            
+            // Normalizar la consulta de búsqueda
+            const normalizedQuery = normalizeText(searchQuery);
+            console.log('Normalized query:', normalizedQuery);
             
             const results = [];
             let searchCount = 0;
+            const maxResults = 100; // Aumentamos a 100 resultados
             
             // Buscar en todos los libros
             Object.keys(bibleData).forEach(bookName => {
+                if (searchCount >= maxResults) return;
+                
                 Object.keys(bibleData[bookName]).forEach(chapterNum => {
+                    if (searchCount >= maxResults) return;
+                    
                     Object.keys(bibleData[bookName][chapterNum]).forEach(verseNum => {
-                        const verseText = bibleData[bookName][chapterNum][verseNum].toLowerCase();
+                        if (searchCount >= maxResults) return;
                         
-                        if (verseText.includes(query) && searchCount < 50) {
+                        const originalText = bibleData[bookName][chapterNum][verseNum];
+                        const normalizedText = normalizeText(originalText);
+                        
+                        // Buscar tanto con query original como normalizada
+                        if (normalizedText.includes(normalizedQuery) || 
+                            originalText.toLowerCase().includes(searchQuery.toLowerCase())) {
+                            
                             results.push({
                                 book: bookName,
                                 chapter: chapterNum,
                                 verse: verseNum,
-                                text: bibleData[bookName][chapterNum][verseNum],
-                                reference: `${bookName} ${chapterNum}:${verseNum}`
+                                text: originalText,
+                                reference: `${bookName} ${chapterNum}:${verseNum}`,
+                                normalizedText: normalizedText
                             });
                             searchCount++;
                         }
@@ -273,20 +304,22 @@
             
             console.log('Results found:', results.length);
             
-            // Mostrar resultados
-            if (results.length === 0) {
-                alert(`No se encontraron resultados para "${query}"`);
-                return;
-            }
-            
-            // Crear modal simple
-            showSimpleSearchResults(query, results);
+            // Mostrar resultados inmediatamente
+            showSmartSearchResults(searchQuery, normalizedQuery, results);
         }
         
-        function showSimpleSearchResults(query, results) {
-            console.log('Showing search results...');
+        // Función de búsqueda en tiempo real con debounce
+        function realTimeSearch() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                smartSearch();
+            }, 300); // Esperar 300ms después de dejar de escribir
+        }
+        
+        function showSmartSearchResults(originalQuery, normalizedQuery, results) {
+            console.log('Showing smart search results...');
             
-            // Crear modal dinámicamente
+            // Crear modal dinámicamente si no existe
             let modal = document.getElementById('simpleSearchModal');
             if (!modal) {
                 modal = document.createElement('div');
@@ -306,31 +339,89 @@
                 document.body.appendChild(modal);
             }
             
-            const highlightedQuery = new RegExp(`(${query})`, 'gi');
-            const resultsHtml = results.map(result => {
-                const highlightedText = result.text.replace(highlightedQuery, '<mark>$1</mark>');
+            if (results.length === 0) {
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 8px; max-width: 80%; max-height: 80%; overflow-y: auto; position: relative; padding: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h3>No se encontraron resultados para "${originalQuery}"</h3>
+                            <button onclick="closeSimpleSearch()" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">✕</button>
+                        </div>
+                        <p style="color: #666;">Intenta con otras palabras o verifica la ortografía.</p>
+                        <p style="color: #888; font-size: 14px;">💡 Tip: La búsqueda funciona sin acentos (Jesus = Jesús)</p>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+                return;
+            }
+            
+            // Crear expresiones regulares para resaltar tanto query original como normalizada
+            const highlightRegex1 = new RegExp(`(${escapeRegExp(originalQuery)})`, 'gi');
+            const highlightRegex2 = new RegExp(`(${escapeRegExp(normalizedQuery)})`, 'gi');
+            
+            const resultsHtml = results.map((result, index) => {
+                let highlightedText = result.text;
+                
+                // Resaltar coincidencias (primero query original, luego normalizada)
+                highlightedText = highlightedText.replace(highlightRegex1, '<mark style="background: #ffeb3b; padding: 1px 3px; border-radius: 2px; font-weight: bold;">$1</mark>');
+                
+                // Si no hay coincidencias con query original, intentar con normalizada
+                if (!highlightedText.includes('<mark')) {
+                    // Buscar palabras que coincidan después de normalizar
+                    const words = result.text.split(/\s+/);
+                    words.forEach(word => {
+                        const normalizedWord = normalizeText(word);
+                        if (normalizedWord.includes(normalizedQuery)) {
+                            const wordRegex = new RegExp(`\\b${escapeRegExp(word)}\\b`, 'gi');
+                            highlightedText = highlightedText.replace(wordRegex, '<mark style="background: #81c784; padding: 1px 3px; border-radius: 2px; font-weight: bold;">$&</mark>');
+                        }
+                    });
+                }
+                
                 return `
-                    <div style="padding: 12px; border-bottom: 1px solid #ddd; cursor: pointer;" 
-                         onclick="goToVerse('${result.book}', ${result.chapter}, ${result.verse})">
-                        <strong>${result.reference}</strong><br>
-                        ${highlightedText}
+                    <div style="padding: 16px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s;" 
+                         onclick="goToVerse('${result.book}', ${result.chapter}, ${result.verse})"
+                         onmouseover="this.style.background='#f5f5f5'" 
+                         onmouseout="this.style.background='white'">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong style="color: #1976d2; font-size: 16px;">${result.reference}</strong>
+                            <span style="color: #666; font-size: 12px;">#${index + 1}</span>
+                        </div>
+                        <div style="line-height: 1.6; color: #333;">${highlightedText}</div>
                     </div>
                 `;
             }).join('');
             
             modal.innerHTML = `
-                <div style="background: white; border-radius: 8px; max-width: 80%; max-height: 80%; overflow-y: auto; position: relative;">
-                    <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
-                        <h3>Resultados para "${query}" (${results.length})</h3>
-                        <button onclick="closeSimpleSearch()" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">✕</button>
+                <div style="background: white; border-radius: 12px; max-width: 85%; max-height: 85%; overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.3);">
+                    <div style="padding: 20px; border-bottom: 2px solid #e0e0e0; background: linear-gradient(135deg, #1976d2, #42a5f5); color: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 20px;">🔍 Resultados de búsqueda</h3>
+                                <p style="margin: 5px 0 0 0; opacity: 0.9;">"${originalQuery}" - ${results.length} resultado${results.length !== 1 ? 's' : ''} encontrado${results.length !== 1 ? 's' : ''}</p>
+                            </div>
+                            <button onclick="closeSimpleSearch()" style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 10px; border-radius: 50%; cursor: pointer; font-size: 18px; width: 40px; height: 40px;">✕</button>
+                        </div>
                     </div>
                     <div style="max-height: 60vh; overflow-y: auto;">
                         ${resultsHtml}
+                    </div>
+                    <div style="padding: 15px; background: #f8f9fa; border-top: 1px solid #e0e0e0; text-align: center; color: #666; font-size: 14px;">
+                        💡 Haz clic en cualquier resultado para ir al versículo
                     </div>
                 </div>
             `;
             
             modal.style.display = 'flex';
+        }
+        
+        // Función para escapar caracteres especiales en regex
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+        
+        // Función simple de búsqueda (mantener compatibilidad)
+        function simpleSearch() {
+            smartSearch();
         }
         
         function closeSimpleSearch() {
@@ -353,16 +444,21 @@
                                 const verseElement = document.querySelector(`[data-verse="${verse}"]`);
                                 if (verseElement) {
                                     verseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    verseElement.style.background = '#4285f4';
+                                    verseElement.style.background = 'linear-gradient(135deg, #4285f4, #34a853)';
                                     verseElement.style.color = 'white';
-                                    verseElement.style.padding = '8px';
-                                    verseElement.style.borderRadius = '4px';
+                                    verseElement.style.padding = '12px';
+                                    verseElement.style.borderRadius = '8px';
+                                    verseElement.style.transform = 'scale(1.02)';
+                                    verseElement.style.transition = 'all 0.3s ease';
+                                    verseElement.style.boxShadow = '0 4px 15px rgba(66, 133, 244, 0.3)';
                                     
                                     setTimeout(() => {
                                         verseElement.style.background = '';
                                         verseElement.style.color = '';
                                         verseElement.style.padding = '';
-                                    }, 3000);
+                                        verseElement.style.transform = '';
+                                        verseElement.style.boxShadow = '';
+                                    }, 4000);
                                 }
                             }, 500);
                         });
@@ -371,21 +467,43 @@
             }
         }
         
-        // También permitir búsqueda con Enter
+        // Configurar búsqueda en tiempo real
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('searchInput');
             if (searchInput) {
+                // Búsqueda en tiempo real mientras escribes
+                searchInput.addEventListener('input', function(e) {
+                    const query = e.target.value.trim();
+                    if (query.length >= 3) {
+                        realTimeSearch();
+                    } else if (query.length === 0) {
+                        closeSimpleSearch();
+                    }
+                });
+                
+                // También permitir búsqueda con Enter
                 searchInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
-                        simpleSearch();
+                        smartSearch();
                     }
+                });
+                
+                // Mostrar tip cuando hace focus
+                searchInput.addEventListener('focus', function() {
+                    if (!this.value) {
+                        this.placeholder = 'Escribe al menos 3 letras (ej: jesus, Jesús, JESÚS...)';
+                    }
+                });
+                
+                searchInput.addEventListener('blur', function() {
+                    this.placeholder = 'Buscar en la Biblia...';
                 });
             }
         });
         
         // Función simple para favoritos
         function openSimpleFavorites() {
-            alert('Función de favoritos en desarrollo. Por favor espera a que se complete la implementación.');
+            alert('🔖 Función de favoritos en desarrollo.\n\n✨ Por ahora disfruta la búsqueda mejorada:\n• Busca desde 3 letras\n• Sin importar acentos\n• Resultados en tiempo real');
         }
     </script>
     
