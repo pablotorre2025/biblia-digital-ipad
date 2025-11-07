@@ -17,9 +17,14 @@
         <div class="header-content">
             <h1>📖 Biblia Digital</h1>
             <div class="header-controls">
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Buscar en la Biblia..." class="search-input">
+                    <button id="searchBtn" class="icon-btn" title="Buscar">🔍</button>
+                </div>
                 <select id="versionSelector" class="version-selector">
                     <option value="">Seleccionar versión...</option>
                 </select>
+                <button id="favoritesBtn" class="icon-btn" title="Favoritos">🔖</button>
                 <button id="compareBtn" class="icon-btn" title="Comparar versiones">🔄</button>
                 <button id="settingsBtn" class="icon-btn" title="Configuración">⚙️</button>
             </div>
@@ -119,6 +124,99 @@
         </div>
     </div>
 
+    <!-- Search Results Modal -->
+    <div id="searchModal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Resultados de Búsqueda</h3>
+                <button id="closeSearch" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-info">
+                    <span id="searchQuery"></span> - <span id="searchCount">0 resultados</span>
+                </div>
+                <div id="searchResults" class="search-results">
+                    <p>Introduce un término de búsqueda</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Favorites Modal -->
+    <div id="favoritesModal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Versículos Favoritos</h3>
+                <button id="closeFavorites" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="favorites-controls">
+                    <select id="categoryFilter" class="category-filter">
+                        <option value="all">Todas las categorías</option>
+                        <option value="oración">Oración</option>
+                        <option value="estudio">Estudio</option>
+                        <option value="predicación">Predicación</option>
+                        <option value="consuelo">Consuelo</option>
+                        <option value="sabiduría">Sabiduría</option>
+                    </select>
+                    <button id="exportFavorites" class="btn-secondary">📤 Exportar</button>
+                </div>
+                <div id="favoritesList" class="favorites-list">
+                    <p>No tienes versículos favoritos aún. ❤️ Haz clic en el corazón junto a un versículo para agregarlo.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enhanced Settings Modal -->
+    <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configuración</h3>
+                <button id="closeSettings" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <h4>🎨 Apariencia</h4>
+                    <div class="setting-item">
+                        <label for="themeSelect">Tema:</label>
+                        <select id="themeSelect" class="theme-select">
+                            <option value="light">🌞 Claro</option>
+                            <option value="dark">🌙 Oscuro</option>
+                            <option value="sepia">📜 Sepia</option>
+                            <option value="blue">🌊 Azul</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label for="fontSizeRange">Tamaño de fuente:</label>
+                        <input type="range" id="fontSizeRange" min="12" max="24" value="16" class="font-range">
+                        <span id="fontSizeValue">16px</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h4>📖 Lectura</h4>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="showVerseNumbers"> Mostrar números de versículos
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label>
+                            <input type="checkbox" id="highlightEnabled"> Habilitar resaltado
+                        </label>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h4>📊 Datos</h4>
+                    <div class="setting-item">
+                        <button id="clearCache" class="btn-secondary">🗑️ Limpiar caché</button>
+                        <button id="exportData" class="btn-secondary">💾 Exportar datos</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Status Bar -->
     <div class="status-bar">
         <span id="connectionStatus" class="status-offline">📡 Offline</span>
@@ -126,6 +224,7 @@
     </div>
 
     <script src="js/app.js"></script>
+    <script src="js/features-level1.js"></script>
     <script src="js/bible-data.js"></script>
     <script src="js/bible-converter.js"></script>
     <script src="js/ui.js"></script>

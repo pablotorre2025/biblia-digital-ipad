@@ -602,6 +602,11 @@ class BibleApp {
         
         // Scroll to top
         window.scrollTo(0, 0);
+        
+        // Trigger enhanced features for this chapter
+        if (window.bibleFeatures) {
+            window.bibleFeatures.enhanceCurrentChapter();
+        }
     }
 
     navigateChapter(direction) {
@@ -1004,4 +1009,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize the main app
     window.bibleApp = new BibleApp();
+    
+    // Initialize enhanced features (Level 1)
+    setTimeout(() => {
+        if (window.BibleFeatures && window.bibleApp) {
+            window.bibleFeatures = new BibleFeatures(window.bibleApp);
+            console.log('Bible Features Level 1 initialized');
+        }
+    }, 500);
 });
