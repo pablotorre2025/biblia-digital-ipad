@@ -601,6 +601,13 @@ class BibleApp {
         // Scroll to top
         window.scrollTo(0, 0);
         
+        // Add favorite buttons to all verses
+        setTimeout(() => {
+            if (typeof updateFavoriteButtons === 'function') {
+                updateFavoriteButtons();
+            }
+        }, 100);
+        
         // Trigger enhanced features for this chapter
         if (window.bibleFeatures) {
             window.bibleFeatures.enhanceCurrentChapter();

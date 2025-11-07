@@ -501,9 +501,494 @@
             }
         });
         
-        // Función simple para favoritos
+        // === SISTEMA DE FAVORITOS COMPLETO ===
+        
+        // Clase para manejar favoritos
+        class FavoritesManager {
+            constructor() {
+                this.storageKey = 'bible-favorites';
+                this.favorites = this.loadFavorites();
+            }
+            
+            loadFavorites() {
+                try {
+                    const stored = localStorage.getItem(this.storageKey);
+                    return stored ? JSON.parse(stored) : [];
+                } catch (error) {
+                    console.error('Error loading favorites:', error);
+                    return [];
+                }
+            }
+            
+            saveFavorites() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.favorites));
+                    return true;
+                } catch (error) {
+                    console.error('Error saving favorites:', error);
+                    return false;
+                }
+            }
+            
+            addFavorite(book, chapter, verse, text, version) {
+                const favorite = {
+                    id: `${book}-${chapter}-${verse}-${version}`,
+                    book,
+                    chapter: parseInt(chapter),
+                    verse: parseInt(verse),
+                    text: text.substring(0, 200), // Limitar texto
+                    version,
+                    dateAdded: new Date().toISOString(),
+                    reference: `${book} ${chapter}:${verse}`
+                };
+                
+                // Verificar si ya existe
+                const exists = this.favorites.find(f => f.id === favorite.id);
+                if (exists) {
+                    return { success: false, message: 'Este versículo ya está en favoritos' };
+                }
+                
+                this.favorites.unshift(favorite); // Agregar al inicio
+                const saved = this.saveFavorites();
+                
+                if (saved) {
+                    return { success: true, message: 'Versículo agregado a favoritos ⭐' };
+                } else {
+                    return { success: false, message: 'Error al guardar favorito' };
+                }
+            }
+            
+            removeFavorite(id) {
+                const index = this.favorites.findIndex(f => f.id === id);
+                if (index !== -1) {
+                    this.favorites.splice(index, 1);
+                    this.saveFavorites();
+                    return true;
+                }
+                return false;
+            }
+            
+            isFavorite(book, chapter, verse, version) {
+                const id = `${book}-${chapter}-${verse}-${version}`;
+                return this.favorites.some(f => f.id === id);
+            }
+            
+            getFavorites() {
+                return [...this.favorites]; // Retornar copia
+            }
+            
+            searchFavorites(query) {
+                const normalizedQuery = normalizeText(query);
+                return this.favorites.filter(fav => {
+                    const normalizedText = normalizeText(fav.text);
+                    const normalizedRef = normalizeText(fav.reference);
+                    return normalizedText.includes(normalizedQuery) || 
+                           normalizedRef.includes(normalizedQuery);
+                });
+            }
+            
+            exportFavorites() {
+                const exportData = {
+                    exportDate: new Date().toISOString(),
+                    totalFavorites: this.favorites.length,
+                    favorites: this.favorites
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `biblia-favoritos-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            }
+            
+            getStats() {
+                const bookStats = {};
+                const versionStats = {};
+                
+                this.favorites.forEach(fav => {
+                    bookStats[fav.book] = (bookStats[fav.book] || 0) + 1;
+                    versionStats[fav.version] = (versionStats[fav.version] || 0) + 1;
+                });
+                
+                return {
+                    total: this.favorites.length,
+                    books: bookStats,
+                    versions: versionStats,
+                    oldestDate: this.favorites.length > 0 ? 
+                        Math.min(...this.favorites.map(f => new Date(f.dateAdded).getTime())) : null,
+                    newestDate: this.favorites.length > 0 ? 
+                        Math.max(...this.favorites.map(f => new Date(f.dateAdded).getTime())) : null
+                };
+            }
+        }
+        
+        // Inicializar manager de favoritos
+        const favoritesManager = new FavoritesManager();
+        
+        // Función para agregar versículo actual a favoritos
+        function addCurrentVerseToFavorites(book, chapter, verse) {
+            if (!window.bibleApp || !window.bibleApp.bibleData) {
+                showToast('❌ Selecciona una versión bíblica primero', 'error');
+                return;
+            }
+            
+            const bibleData = window.bibleApp.bibleData;
+            const currentVersion = window.bibleApp.currentVersion;
+            
+            if (!bibleData[book] || !bibleData[book][chapter] || !bibleData[book][chapter][verse]) {
+                showToast('❌ Versículo no encontrado', 'error');
+                return;
+            }
+            
+            const text = bibleData[book][chapter][verse];
+            const result = favoritesManager.addFavorite(book, chapter, verse, text, currentVersion);
+            
+            if (result.success) {
+                showToast(result.message, 'success');
+                updateFavoriteButtons();
+            } else {
+                showToast(result.message, 'warning');
+            }
+        }
+        
+        // Función para abrir favoritos
+        function openFavorites() {
+            const favorites = favoritesManager.getFavorites();
+            showFavoritesModal(favorites);
+        }
+        
+        // Función para mostrar modal de favoritos
+        function showFavoritesModal(favorites) {
+            let modal = document.getElementById('favoritesModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'favoritesModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.6);
+                    z-index: 1001;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            if (favorites.length === 0) {
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 85%; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                        <div style="padding: 25px; text-align: center; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white;">
+                            <h2 style="margin: 0; font-size: 24px;">⭐ Mis Favoritos</h2>
+                            <p style="margin: 8px 0 0 0; opacity: 0.9;">Tu colección personal de versículos</p>
+                        </div>
+                        <div style="padding: 40px; text-align: center;">
+                            <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;">📖</div>
+                            <h3 style="color: #666; margin-bottom: 15px;">No tienes favoritos aún</h3>
+                            <p style="color: #888; margin-bottom: 25px; line-height: 1.6;">
+                                💡 Para agregar versículos a favoritos:<br>
+                                1. Navega a cualquier versículo<br>
+                                2. Haz clic en el ⭐ que aparece junto al número del versículo<br>
+                                3. ¡Tu versículo se guardará aquí!
+                            </p>
+                            <button onclick="closeFavorites()" style="background: #4285f4; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                                Entendido
+                            </button>
+                        </div>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+                return;
+            }
+            
+            const stats = favoritesManager.getStats();
+            const favoritesHtml = favorites.map((fav, index) => `
+                <div style="padding: 16px; border-bottom: 1px solid #e0e0e0; position: relative; transition: all 0.3s ease;" 
+                     onmouseover="this.style.background='#f8f9fa'" 
+                     onmouseout="this.style.background='white'">
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                                <span style="background: linear-gradient(135deg, #4285f4, #34a853); color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                                    ${fav.version}
+                                </span>
+                                <strong style="color: #1976d2; font-size: 16px; cursor: pointer;" 
+                                        onclick="goToFavoriteVerse('${fav.book}', ${fav.chapter}, ${fav.verse})"
+                                        onmouseover="this.style.textDecoration='underline'"
+                                        onmouseout="this.style.textDecoration='none'">
+                                    ${fav.reference}
+                                </strong>
+                            </div>
+                            <div style="color: #666; font-size: 12px; margin-bottom: 8px;">
+                                📅 Agregado: ${new Date(fav.dateAdded).toLocaleDateString('es-ES', { 
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}
+                            </div>
+                        </div>
+                        
+                        <button onclick="removeFavoriteVerse('${fav.id}')" 
+                                style="background: #ff4444; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; min-width: 60px;"
+                                onmouseover="this.style.background='#cc0000'"
+                                onmouseout="this.style.background='#ff4444'">
+                            🗑️ Quitar
+                        </button>
+                    </div>
+                    
+                    <div style="line-height: 1.6; color: #333; font-style: italic; padding: 8px 0;">
+                        "${fav.text}${fav.text.length >= 200 ? '...' : ''}"
+                    </div>
+                </div>
+            `).join('');
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 85%; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                    
+                    <div style="padding: 20px; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 22px;">⭐ Mis Favoritos</h2>
+                                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
+                                    ${stats.total} versículo${stats.total !== 1 ? 's' : ''} guardado${stats.total !== 1 ? 's' : ''} • ${Object.keys(stats.books).length} libro${Object.keys(stats.books).length !== 1 ? 's' : ''}
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="searchInFavorites()" 
+                                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                    🔍 Buscar
+                                </button>
+                                <button onclick="exportFavorites()" 
+                                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                    📤 Exportar
+                                </button>
+                                <button onclick="closeFavorites()" 
+                                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 18px; width: 36px; height: 36px;">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="max-height: 65vh; overflow-y: auto;">
+                        ${favoritesHtml}
+                    </div>
+                    
+                    <div style="padding: 15px; background: #f8f9fa; border-top: 1px solid #e0e0e0; text-align: center;">
+                        <div style="color: #666; font-size: 13px; margin-bottom: 5px;">
+                            💡 Haz clic en cualquier referencia para ir al versículo
+                        </div>
+                        <div style="color: #888; font-size: 12px;">
+                            Los favoritos se guardan automáticamente en tu dispositivo
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        // Funciones auxiliares para favoritos
+        function closeFavorites() {
+            const modal = document.getElementById('favoritesModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        function goToFavoriteVerse(book, chapter, verse) {
+            closeFavorites();
+            if (window.bibleApp) {
+                window.bibleApp.selectBook(book).then(() => {
+                    setTimeout(() => {
+                        window.bibleApp.loadChapter(book, parseInt(chapter)).then(() => {
+                            setTimeout(() => {
+                                const verseElement = document.querySelector(`[data-verse="${verse}"]`);
+                                if (verseElement) {
+                                    verseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    highlightVerse(verseElement, 'favorite');
+                                }
+                            }, 500);
+                        });
+                    }, 200);
+                });
+            }
+        }
+        
+        function removeFavoriteVerse(id) {
+            if (confirm('¿Estás seguro de que quieres quitar este versículo de favoritos?')) {
+                if (favoritesManager.removeFavorite(id)) {
+                    showToast('🗑️ Versículo quitado de favoritos', 'info');
+                    openFavorites(); // Refrescar modal
+                    updateFavoriteButtons();
+                } else {
+                    showToast('❌ Error al quitar favorito', 'error');
+                }
+            }
+        }
+        
+        function exportFavorites() {
+            favoritesManager.exportFavorites();
+            showToast('📤 Favoritos exportados exitosamente', 'success');
+        }
+        
+        function searchInFavorites() {
+            const query = prompt('🔍 Buscar en favoritos:\n\n(Puedes buscar por texto del versículo o referencia)');
+            if (query && query.trim()) {
+                const results = favoritesManager.searchFavorites(query.trim());
+                showFavoritesModal(results);
+            }
+        }
+        
+        // Función para destacar versículos
+        function highlightVerse(element, type = 'search') {
+            const colors = {
+                search: { bg: 'linear-gradient(135deg, #4285f4, #34a853)', shadow: 'rgba(66, 133, 244, 0.3)' },
+                favorite: { bg: 'linear-gradient(135deg, #ff6b35, #f7931e)', shadow: 'rgba(255, 107, 53, 0.3)' }
+            };
+            
+            const color = colors[type];
+            element.style.background = color.bg;
+            element.style.color = 'white';
+            element.style.padding = '12px';
+            element.style.borderRadius = '8px';
+            element.style.transform = 'scale(1.02)';
+            element.style.transition = 'all 0.3s ease';
+            element.style.boxShadow = `0 4px 15px ${color.shadow}`;
+            
+            setTimeout(() => {
+                element.style.background = '';
+                element.style.color = '';
+                element.style.padding = '';
+                element.style.transform = '';
+                element.style.boxShadow = '';
+            }, 4000);
+        }
+        
+        // Sistema de notificaciones toast
+        function showToast(message, type = 'info') {
+            const colors = {
+                success: { bg: '#4caf50', icon: '✅' },
+                error: { bg: '#f44336', icon: '❌' },
+                warning: { bg: '#ff9800', icon: '⚠️' },
+                info: { bg: '#2196f3', icon: 'ℹ️' }
+            };
+            
+            const color = colors[type] || colors.info;
+            
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${color.bg};
+                color: white;
+                padding: 16px 20px;
+                border-radius: 8px;
+                font-weight: 500;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 10000;
+                max-width: 350px;
+                opacity: 0;
+                transform: translateX(100%);
+                transition: all 0.3s ease;
+            `;
+            
+            toast.innerHTML = `${color.icon} ${message}`;
+            document.body.appendChild(toast);
+            
+            // Animar entrada
+            setTimeout(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateX(0)';
+            }, 100);
+            
+            // Quitar después de 3 segundos
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
+        }
+        
+        // Función para actualizar botones de favoritos en versículos
+        function updateFavoriteButtons() {
+            // Esta función se llamará cuando se cargue un capítulo para mostrar los botones ⭐
+            const verses = document.querySelectorAll('[data-verse]');
+            verses.forEach(verseElement => {
+                const verse = verseElement.getAttribute('data-verse');
+                if (window.bibleApp && window.bibleApp.currentBook && window.bibleApp.currentChapter) {
+                    addFavoriteButtonToVerse(verseElement, window.bibleApp.currentBook, window.bibleApp.currentChapter, verse);
+                }
+            });
+        }
+        
+        function addFavoriteButtonToVerse(verseElement, book, chapter, verse) {
+            // Evitar duplicar botones
+            if (verseElement.querySelector('.favorite-btn')) return;
+            
+            const isFav = favoritesManager.isFavorite(book, chapter, verse, window.bibleApp?.currentVersion);
+            
+            const favButton = document.createElement('button');
+            favButton.className = 'favorite-btn';
+            favButton.innerHTML = isFav ? '⭐' : '☆';
+            favButton.style.cssText = `
+                background: none;
+                border: none;
+                font-size: 18px;
+                cursor: pointer;
+                padding: 4px;
+                margin-left: 8px;
+                opacity: 0.7;
+                transition: all 0.2s ease;
+            `;
+            
+            favButton.onclick = (e) => {
+                e.stopPropagation();
+                if (isFav) {
+                    const id = `${book}-${chapter}-${verse}-${window.bibleApp.currentVersion}`;
+                    if (favoritesManager.removeFavorite(id)) {
+                        favButton.innerHTML = '☆';
+                        showToast('🗑️ Quitado de favoritos', 'info');
+                    }
+                } else {
+                    addCurrentVerseToFavorites(book, chapter, verse);
+                    favButton.innerHTML = '⭐';
+                }
+            };
+            
+            favButton.onmouseover = () => {
+                favButton.style.opacity = '1';
+                favButton.style.transform = 'scale(1.2)';
+            };
+            
+            favButton.onmouseout = () => {
+                favButton.style.opacity = '0.7';
+                favButton.style.transform = 'scale(1)';
+            };
+            
+            // Insertar el botón después del número de versículo
+            const verseNumber = verseElement.querySelector('.verse-number, strong');
+            if (verseNumber) {
+                verseNumber.appendChild(favButton);
+            } else {
+                verseElement.insertBefore(favButton, verseElement.firstChild);
+            }
+        }
+        
+        // Función simple para favoritos (mantener compatibilidad)
         function openSimpleFavorites() {
-            alert('🔖 Función de favoritos en desarrollo.\n\n✨ Por ahora disfruta la búsqueda mejorada:\n• Busca desde 3 letras\n• Sin importar acentos\n• Resultados en tiempo real');
+            openFavorites();
         }
     </script>
     
