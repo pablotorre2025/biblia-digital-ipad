@@ -247,45 +247,68 @@ class BibleApp {
             // Update UI
             this.populateBookSelector();
             
-            // Restore previous position if available
-            if (previousBook && previousChapter && bibleData[previousBook]?.[previousChapter]) {
-                console.log('Restoring position:', previousBook, previousChapter);
-                console.log('Available books after loading:', this.books.slice(0, 5));
-                console.log('Target book exists:', this.books.includes(previousBook));
-                console.log('Target chapter exists:', !!bibleData[previousBook]?.[previousChapter]);
+            // Restore previous position if available - with delay to ensure UI is ready
+            if (previousBook && previousChapter && bibleData[previousBook] && bibleData[previousBook][previousChapter]) {
+                console.log('=== STARTING POSITION RESTORATION ===');
+                console.log('Previous book:', previousBook);
+                console.log('Previous chapter:', previousChapter);
+                console.log('Books available:', this.books.slice(0, 5));
+                console.log('Book found in new version:', this.books.includes(previousBook));
                 
-                // Set current book and chapter directly
-                this.currentBook = previousBook;
-                this.currentChapter = previousChapter;
+                // Use setTimeout to ensure DOM is updated
+                setTimeout(async () => {
+                    try {
+                        console.log('Executing delayed restoration...');
+                        
+                        // Set current book and chapter
+                        this.currentBook = previousBook;
+                        this.currentChapter = parseInt(previousChapter);
+                        
+                        console.log('Set currentBook to:', this.currentBook);
+                        console.log('Set currentChapter to:', this.currentChapter);
+                        
+                        // Update book selector
+                        const bookSelector = document.getElementById('bookSelector');
+                        if (bookSelector) {
+                            bookSelector.value = previousBook;
+                            console.log('Book selector updated to:', bookSelector.value);
+                        }
+                        
+                        // Get chapters for this book
+                        const chapters = Object.keys(bibleData[previousBook]);
+                        console.log(`Book ${previousBook} has ${chapters.length} chapters`);
+                        
+                        // Populate and set chapter selector
+                        this.populateChapterSelector(chapters.length);
+                        
+                        const chapterSelector = document.getElementById('chapterSelector');
+                        if (chapterSelector) {
+                            chapterSelector.value = previousChapter.toString();
+                            console.log('Chapter selector updated to:', chapterSelector.value);
+                        }
+                        
+                        // Load the actual chapter content
+                        console.log('Loading chapter content...');
+                        await this.loadChapter(previousBook, parseInt(previousChapter));
+                        
+                        console.log('=== POSITION RESTORATION COMPLETE ===');
+                        
+                    } catch (error) {
+                        console.error('Error in delayed restoration:', error);
+                        // If restoration fails, just show the book selector
+                        this.showWelcomeMessage();
+                    }
+                }, 100);
                 
-                // Populate chapter selector for this book FIRST
-                const chapters = Object.keys(bibleData[previousBook]);
-                console.log(`Book "${previousBook}" has chapters:`, chapters.slice(0, 5));
-                this.populateChapterSelector(chapters.length);
-                
-                // THEN update selectors with values
-                const bookSelector = document.getElementById('bookSelector');
-                const chapterSelector = document.getElementById('chapterSelector');
-                if (bookSelector) {
-                    bookSelector.value = previousBook;
-                    console.log('Set book selector to:', bookSelector.value);
-                }
-                if (chapterSelector) {
-                    chapterSelector.value = previousChapter;
-                    console.log('Set chapter selector to:', chapterSelector.value);
-                }
-                
-                // Load the content directly
-                console.log('About to load chapter content...');
-                await this.loadChapter(previousBook, previousChapter);
-                console.log('Chapter content loaded successfully');
             } else {
-                console.log('Position restoration skipped:', {
-                    previousBook,
-                    previousChapter,
-                    bookExists: previousBook && this.books.includes(previousBook),
-                    chapterExists: previousBook && previousChapter && !!bibleData[previousBook]?.[previousChapter]
+                console.log('=== POSITION RESTORATION SKIPPED ===');
+                console.log('Conditions check:', {
+                    hasPreviousBook: !!previousBook,
+                    hasPreviousChapter: !!previousChapter,
+                    bookExistsInNewData: !!bibleData[previousBook],
+                    chapterExistsInNewData: !!bibleData[previousBook]?.[previousChapter]
                 });
+                this.showWelcomeMessage();
             }
             
             // Update comparison if modal is open
@@ -943,6 +966,22 @@ class BibleApp {
         } else {
             // Fallback to alert
             alert(`Error: ${message}`);
+        }
+    }
+
+    showWelcomeMessage() {
+        const chapterTitle = document.getElementById('chapterTitle');
+        const verseContainer = document.getElementById('verseContainer');
+        
+        if (chapterTitle) chapterTitle.textContent = '';
+        if (verseContainer) {
+            verseContainer.innerHTML = `
+                <div class="welcome-message">
+                    <h2>Bienvenido a la Biblia Digital</h2>
+                    <p>Selecciona un libro para comenzar a leer.</p>
+                    <p><strong>66 libros disponibles</strong></p>
+                </div>
+            `;
         }
     }
 
