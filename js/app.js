@@ -250,23 +250,42 @@ class BibleApp {
             // Restore previous position if available
             if (previousBook && previousChapter && bibleData[previousBook]?.[previousChapter]) {
                 console.log('Restoring position:', previousBook, previousChapter);
+                console.log('Available books after loading:', this.books.slice(0, 5));
+                console.log('Target book exists:', this.books.includes(previousBook));
+                console.log('Target chapter exists:', !!bibleData[previousBook]?.[previousChapter]);
                 
                 // Set current book and chapter directly
                 this.currentBook = previousBook;
                 this.currentChapter = previousChapter;
                 
-                // Update selectors
+                // Populate chapter selector for this book FIRST
+                const chapters = Object.keys(bibleData[previousBook]);
+                console.log(`Book "${previousBook}" has chapters:`, chapters.slice(0, 5));
+                this.populateChapterSelector(chapters.length);
+                
+                // THEN update selectors with values
                 const bookSelector = document.getElementById('bookSelector');
                 const chapterSelector = document.getElementById('chapterSelector');
-                if (bookSelector) bookSelector.value = previousBook;
-                
-                // Populate chapter selector for this book
-                const chapters = Object.keys(bibleData[previousBook]);
-                this.populateChapterSelector(chapters.length);
-                if (chapterSelector) chapterSelector.value = previousChapter;
+                if (bookSelector) {
+                    bookSelector.value = previousBook;
+                    console.log('Set book selector to:', bookSelector.value);
+                }
+                if (chapterSelector) {
+                    chapterSelector.value = previousChapter;
+                    console.log('Set chapter selector to:', chapterSelector.value);
+                }
                 
                 // Load the content directly
+                console.log('About to load chapter content...');
                 await this.loadChapter(previousBook, previousChapter);
+                console.log('Chapter content loaded successfully');
+            } else {
+                console.log('Position restoration skipped:', {
+                    previousBook,
+                    previousChapter,
+                    bookExists: previousBook && this.books.includes(previousBook),
+                    chapterExists: previousBook && previousChapter && !!bibleData[previousBook]?.[previousChapter]
+                });
             }
             
             // Update comparison if modal is open
@@ -503,18 +522,36 @@ class BibleApp {
 
     async loadChapter(bookName, chapterNum) {
         try {
+            console.log(`Loading chapter ${chapterNum} of ${bookName}`);
+            console.log('Bible data available:', !!this.bibleData);
+            console.log('Book exists in data:', !!this.bibleData?.[bookName]);
+            console.log('Chapter exists in book:', !!this.bibleData?.[bookName]?.[chapterNum]);
+            
             if (!this.bibleData || !this.bibleData[bookName] || !this.bibleData[bookName][chapterNum]) {
+                console.error('Chapter not found. Available data:', {
+                    hasBibleData: !!this.bibleData,
+                    availableBooks: this.bibleData ? Object.keys(this.bibleData).slice(0, 3) : [],
+                    requestedBook: bookName,
+                    requestedChapter: chapterNum
+                });
                 throw new Error('Capítulo no encontrado');
             }
 
             this.currentChapter = chapterNum;
             const verses = this.bibleData[bookName][chapterNum];
             
+            console.log(`Found ${Object.keys(verses).length} verses in ${bookName} ${chapterNum}`);
+            
             this.displayChapter(bookName, chapterNum, verses);
             this.updateNavigationButtons();
             this.saveLastRead();
             
-            document.getElementById('chapterSelector').value = chapterNum;
+            // Update chapter selector if not already set
+            const chapterSelector = document.getElementById('chapterSelector');
+            if (chapterSelector && chapterSelector.value !== chapterNum.toString()) {
+                chapterSelector.value = chapterNum;
+                console.log('Updated chapter selector to:', chapterSelector.value);
+            }
             
         } catch (error) {
             console.error('Error loading chapter:', error);
