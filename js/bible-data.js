@@ -23,49 +23,71 @@ class BibleDataManager {
         }
 
         try {
+            console.log(`Attempting to load version: ${versionId}`);
+            
             // Primero intentar cargar desde biblias-originales
             let data = await this.loadOriginalFormatBible(versionId);
             
             if (!data) {
+                console.log(`Original format not found for ${versionId}, trying app format...`);
                 // Fallback al formato antiguo
                 const response = await fetch(`./data/${versionId}.json`);
                 if (!response.ok) {
-                    throw new Error(`No se pudo cargar la versión ${versionId}`);
+                    throw new Error(`No se pudo cargar la versión ${versionId} - HTTP ${response.status}`);
                 }
                 data = await response.json();
             }
             
+            console.log(`Successfully loaded ${versionId}`);
             this.versions.set(versionId, data);
             return data;
         } catch (error) {
             console.error(`Error loading version ${versionId}:`, error);
-            throw error;
+            throw new Error(`Error al cargar ${versionId}: ${error.message}`);
         }
     }
 
     async loadOriginalFormatBible(versionId) {
         try {
-            const response = await fetch(`./data/biblias-originales/${versionId}.json`);
-            if (!response.ok) {
-                return null; // No existe en formato original
+            // Buscar la configuración de la versión para obtener el nombre real del archivo
+            const versionsResponse = await fetch('./data/versions.json');
+            if (versionsResponse.ok) {
+                const versionsConfig = await versionsResponse.json();
+                const versionInfo = versionsConfig.versions.find(v => v.id === versionId);
+                
+                if (versionInfo && versionInfo.format === 'original') {
+                    const filename = versionInfo.filename;
+                    console.log(`Trying to load: ./data/biblias-originales/${filename}`);
+                    
+                    const response = await fetch(`./data/biblias-originales/${filename}`);
+                    if (!response.ok) {
+                        console.log(`File not found: ./data/biblias-originales/${filename} (HTTP ${response.status})`);
+                        return null; // No existe en formato original
+                    }
+                    
+                    const originalData = await response.json();
+                    
+                    // Validar que tiene el formato correcto
+                    if (!originalData.books || !Array.isArray(originalData.books)) {
+                        console.error('Invalid original format:', originalData);
+                        throw new Error('Formato de biblia original inválido');
+                    }
+                    
+                    console.log(`Found ${originalData.books.length} books in ${versionInfo.name}`);
+                    
+                    // Guardar formato original
+                    this.originalFormat.set(versionId, originalData);
+                    
+                    // Convertir al formato de la aplicación
+                    const convertedData = this.convertOriginalFormat(originalData);
+                    return convertedData;
+                }
             }
             
-            const originalData = await response.json();
-            
-            // Validar que tiene el formato correcto
-            if (!originalData.books || !Array.isArray(originalData.books)) {
-                throw new Error('Formato de biblia original inválido');
-            }
-            
-            // Guardar formato original
-            this.originalFormat.set(versionId, originalData);
-            
-            // Convertir al formato de la aplicación
-            const convertedData = this.convertOriginalFormat(originalData);
-            return convertedData;
+            return null;
             
         } catch (error) {
-            console.warn(`No se pudo cargar formato original para ${versionId}:`, error);
+            console.error(`Error loading original format for ${versionId}:`, error);
             return null;
         }
     }
