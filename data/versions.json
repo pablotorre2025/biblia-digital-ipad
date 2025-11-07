@@ -1,23 +1,24 @@
 {
   "versions": [
     {
-      "id": "rv60",
+      "id": "rv1960",
       "name": "Reina-Valera 1960",
       "language": "es",
       "year": 1960,
       "description": "Una de las traducciones más utilizadas en español",
-      "filename": "rv60.json",
+      "filename": "RV1960.json",
       "format": "original",
       "folder": "biblias-originales"
     },
     {
-      "id": "rvr1960",
-      "name": "Reina Valera 1960 (Formato App)",
+      "id": "rv60",
+      "name": "Reina-Valera 1960 (Alternativa)",
       "language": "es",
       "year": 1960,
-      "description": "Versión de muestra en formato de aplicación",
-      "filename": "rvr1960.json",
-      "format": "app"
+      "description": "Versión alternativa Reina-Valera 1960",
+      "filename": "rv60.json",
+      "format": "original",
+      "folder": "biblias-originales"
     },
     {
       "id": "nvi",
@@ -25,46 +26,115 @@
       "language": "es", 
       "year": 1999,
       "description": "Traducción moderna y fiel al texto original",
-      "filename": "nvi.json",
+      "filename": "NVI.json",
       "format": "original",
       "folder": "biblias-originales"
     },
     {
-      "id": "lbla",
-      "name": "La Biblia de las Américas",
+      "id": "ntv",
+      "name": "Nueva Traducción Viviente",
       "language": "es",
-      "year": 1986,
-      "description": "Traducción literal y precisa",
-      "filename": "lbla.json",
+      "year": 2008,
+      "description": "Traducción en español contemporáneo",
+      "filename": "NTV.json",
       "format": "original",
       "folder": "biblias-originales"
     },
     {
-      "id": "kjv",
-      "name": "King James Version",
-      "language": "en",
-      "year": 1611,
-      "description": "Classic English translation",
-      "filename": "kjv.json",
+      "id": "dhh",
+      "name": "Dios Habla Hoy",
+      "language": "es",
+      "year": 1979,
+      "description": "Versión popular en lenguaje sencillo",
+      "filename": "DHH.json",
       "format": "original",
       "folder": "biblias-originales"
     },
     {
-      "id": "niv",
-      "name": "New International Version",
-      "language": "en",
-      "year": 1978,
-      "description": "Modern English translation",
-      "filename": "niv.json",
+      "id": "bl95",
+      "name": "Biblia Latinoamericana 1995",
+      "language": "es",
+      "year": 1995,
+      "description": "Traducción latinoamericana",
+      "filename": "BL95.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "blah",
+      "name": "Biblia de las Américas Hispana",
+      "language": "es",
+      "year": 1997,
+      "description": "Versión hispana de LBLA",
+      "filename": "BLAH.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "nbh",
+      "name": "Nueva Biblia de los Hispanos",
+      "language": "es",
+      "year": 2005,
+      "description": "Traducción para el mundo hispano",
+      "filename": "NBH.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "nbj",
+      "name": "Nueva Biblia de Jerusalén",
+      "language": "es",
+      "year": 1998,
+      "description": "Traducción católica de Jerusalén",
+      "filename": "NBJ.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "nblh",
+      "name": "Nueva Biblia Latinoamericana de Hoy",
+      "language": "es",
+      "year": 2005,
+      "description": "Versión latinoamericana contemporánea",
+      "filename": "NBLH.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "bj",
+      "name": "Biblia de Jerusalén",
+      "language": "es",
+      "year": 1976,
+      "description": "Traducción católica francesa",
+      "filename": "BJ.json",
+      "format": "original",
+      "folder": "biblias-originales"
+    },
+    {
+      "id": "pddpt",
+      "name": "Palabra de Dios para Todos",
+      "language": "es",
+      "year": 2005,
+      "description": "Traducción en lenguaje sencillo",
+      "filename": "pddpt.json",
       "format": "original",
       "folder": "biblias-originales"
     }
   ],
   "lastUpdated": "2024-11-06",
-  "totalVersions": 6,
-  "supportedFormats": ["original", "app"],
+  "totalVersions": 12,
+  "supportedFormats": ["original"],
   "notes": {
     "original": "Formato con estructura de arrays: { books: [{ name, chapters: [[{verse, text}]] }] }",
-    "app": "Formato optimizado para la app: { BookName: { ChapterNum: { VerseNum: text } } }"
+    "languages": {
+      "es": "Español - 12 versiones disponibles"
+    },
+    "categories": {
+      "tradicionales": ["rv1960", "rv60"],
+      "modernas": ["nvi", "ntv", "dhh"],
+      "catolicas": ["nbj", "bj"],
+      "literales": ["blah", "nblh"],
+      "populares": ["pddpt"]
+    }
   }
 }

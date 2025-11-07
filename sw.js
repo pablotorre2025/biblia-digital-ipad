@@ -1,16 +1,16 @@
 // Service Worker for offline functionality
-const CACHE_NAME = 'biblia-digital-v1';
+const CACHE_NAME = 'biblia-digital-v2';
 const urlsToCache = [
     '/',
     '/index.html',
     '/css/styles.css',
     '/js/app.js',
     '/js/bible-data.js',
+    '/js/bible-converter.js',
     '/js/ui.js',
     '/data/versions.json',
-    '/data/rvr1960.json',
-    '/assets/icon-192.png',
-    '/assets/icon-512.png',
+    '/assets/icon-192.svg',
+    '/assets/icon-512.svg',
     '/manifest.json'
 ];
 
