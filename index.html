@@ -19,12 +19,12 @@
             <div class="header-controls">
                 <div class="search-container">
                     <input type="text" id="searchInput" placeholder="Buscar en la Biblia..." class="search-input">
-                    <button id="searchBtn" class="icon-btn" title="Buscar">🔍</button>
+                    <button id="searchBtn" class="icon-btn" title="Buscar" onclick="simpleSearch()">🔍</button>
                 </div>
                 <select id="versionSelector" class="version-selector">
                     <option value="">Seleccionar versión...</option>
                 </select>
-                <button id="favoritesBtn" class="icon-btn" title="Favoritos">🔖</button>
+                <button id="favoritesBtn" class="icon-btn" title="Favoritos" onclick="openSimpleFavorites()">🔖</button>
                 <button id="compareBtn" class="icon-btn" title="Comparar versiones">🔄</button>
                 <button id="settingsBtn" class="icon-btn" title="Configuración">⚙️</button>
             </div>
@@ -223,6 +223,172 @@
         <span id="lastUpdate"></span>
     </div>
 
+    <script>
+        // Función de búsqueda simple que funciona inmediatamente
+        function simpleSearch() {
+            console.log('=== SIMPLE SEARCH STARTED ===');
+            
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput.value.trim().toLowerCase();
+            
+            console.log('Search query:', query);
+            
+            if (query.length < 2) {
+                alert('Por favor, introduce al menos 2 caracteres para buscar.');
+                return;
+            }
+            
+            // Verificar si hay una app cargada
+            if (!window.bibleApp || !window.bibleApp.bibleData) {
+                alert('Por favor, selecciona y carga una versión de la Biblia primero.');
+                return;
+            }
+            
+            const bibleData = window.bibleApp.bibleData;
+            console.log('Bible data available:', !!bibleData);
+            console.log('Books available:', Object.keys(bibleData).slice(0, 3));
+            
+            const results = [];
+            let searchCount = 0;
+            
+            // Buscar en todos los libros
+            Object.keys(bibleData).forEach(bookName => {
+                Object.keys(bibleData[bookName]).forEach(chapterNum => {
+                    Object.keys(bibleData[bookName][chapterNum]).forEach(verseNum => {
+                        const verseText = bibleData[bookName][chapterNum][verseNum].toLowerCase();
+                        
+                        if (verseText.includes(query) && searchCount < 50) {
+                            results.push({
+                                book: bookName,
+                                chapter: chapterNum,
+                                verse: verseNum,
+                                text: bibleData[bookName][chapterNum][verseNum],
+                                reference: `${bookName} ${chapterNum}:${verseNum}`
+                            });
+                            searchCount++;
+                        }
+                    });
+                });
+            });
+            
+            console.log('Results found:', results.length);
+            
+            // Mostrar resultados
+            if (results.length === 0) {
+                alert(`No se encontraron resultados para "${query}"`);
+                return;
+            }
+            
+            // Crear modal simple
+            showSimpleSearchResults(query, results);
+        }
+        
+        function showSimpleSearchResults(query, results) {
+            console.log('Showing search results...');
+            
+            // Crear modal dinámicamente
+            let modal = document.getElementById('simpleSearchModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'simpleSearchModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 1000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            const highlightedQuery = new RegExp(`(${query})`, 'gi');
+            const resultsHtml = results.map(result => {
+                const highlightedText = result.text.replace(highlightedQuery, '<mark>$1</mark>');
+                return `
+                    <div style="padding: 12px; border-bottom: 1px solid #ddd; cursor: pointer;" 
+                         onclick="goToVerse('${result.book}', ${result.chapter}, ${result.verse})">
+                        <strong>${result.reference}</strong><br>
+                        ${highlightedText}
+                    </div>
+                `;
+            }).join('');
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 8px; max-width: 80%; max-height: 80%; overflow-y: auto; position: relative;">
+                    <div style="padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                        <h3>Resultados para "${query}" (${results.length})</h3>
+                        <button onclick="closeSimpleSearch()" style="background: #ff4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">✕</button>
+                    </div>
+                    <div style="max-height: 60vh; overflow-y: auto;">
+                        ${resultsHtml}
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeSimpleSearch() {
+            const modal = document.getElementById('simpleSearchModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function goToVerse(book, chapter, verse) {
+            console.log(`Navigating to ${book} ${chapter}:${verse}`);
+            closeSimpleSearch();
+            
+            if (window.bibleApp) {
+                // Navegar al versículo
+                window.bibleApp.selectBook(book).then(() => {
+                    setTimeout(() => {
+                        window.bibleApp.loadChapter(book, parseInt(chapter)).then(() => {
+                            setTimeout(() => {
+                                const verseElement = document.querySelector(`[data-verse="${verse}"]`);
+                                if (verseElement) {
+                                    verseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    verseElement.style.background = '#4285f4';
+                                    verseElement.style.color = 'white';
+                                    verseElement.style.padding = '8px';
+                                    verseElement.style.borderRadius = '4px';
+                                    
+                                    setTimeout(() => {
+                                        verseElement.style.background = '';
+                                        verseElement.style.color = '';
+                                        verseElement.style.padding = '';
+                                    }, 3000);
+                                }
+                            }, 500);
+                        });
+                    }, 200);
+                });
+            }
+        }
+        
+        // También permitir búsqueda con Enter
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        simpleSearch();
+                    }
+                });
+            }
+        });
+        
+        // Función simple para favoritos
+        function openSimpleFavorites() {
+            alert('Función de favoritos en desarrollo. Por favor espera a que se complete la implementación.');
+        }
+    </script>
+    
     <script src="js/app.js"></script>
     <script src="js/features-level1.js"></script>
     <script src="js/bible-data.js"></script>
