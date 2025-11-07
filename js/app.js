@@ -35,17 +35,7 @@ class BibleApp {
         // Version selector
         document.getElementById('versionSelector').addEventListener('change', async (e) => {
             if (e.target.value) {
-                const previousBook = this.currentBook;
-                const previousChapter = this.currentChapter;
-                
                 await this.loadVersion(e.target.value);
-                
-                // Restore previous reading position if available
-                if (previousBook && previousChapter && this.books.includes(previousBook)) {
-                    console.log(`Restoring position: ${previousBook} ${previousChapter}`);
-                    await this.selectBook(previousBook);
-                    await this.loadChapter(previousBook, previousChapter);
-                }
             }
         });
 
@@ -260,8 +250,23 @@ class BibleApp {
             // Restore previous position if available
             if (previousBook && previousChapter && bibleData[previousBook]?.[previousChapter]) {
                 console.log('Restoring position:', previousBook, previousChapter);
-                this.selectBook(previousBook);
-                setTimeout(() => this.selectChapter(previousChapter), 100);
+                
+                // Set current book and chapter directly
+                this.currentBook = previousBook;
+                this.currentChapter = previousChapter;
+                
+                // Update selectors
+                const bookSelector = document.getElementById('bookSelector');
+                const chapterSelector = document.getElementById('chapterSelector');
+                if (bookSelector) bookSelector.value = previousBook;
+                
+                // Populate chapter selector for this book
+                const chapters = Object.keys(bibleData[previousBook]);
+                this.populateChapterSelector(chapters.length);
+                if (chapterSelector) chapterSelector.value = previousChapter;
+                
+                // Load the content directly
+                await this.loadChapter(previousBook, previousChapter);
             }
             
             // Update comparison if modal is open
@@ -430,7 +435,7 @@ class BibleApp {
         console.log(`Book selector populated with: ${this.books.slice(0, 5).join(', ')}${this.books.length > 5 ? '...' : ''}`);
     }
 
-    async selectBook(bookName) {
+    async selectBook(bookName, autoLoadChapter = true) {
         try {
             console.log(`Selecting book: ${bookName}`);
             
@@ -472,8 +477,8 @@ class BibleApp {
                 `;
             }
             
-            // Auto-load first chapter if available
-            if (chapters.length > 0) {
+            // Auto-load first chapter only if requested and available
+            if (autoLoadChapter && chapters.length > 0) {
                 console.log(`Auto-loading first chapter of ${bookName}`);
                 await this.loadChapter(bookName, 1);
             }
