@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Carga de Biblias</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background-color: #f5f5f5; 
+        }
+        .test-container { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { 
+            padding: 10px 20px; 
+            margin: 5px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+        }
+        button:hover { background-color: #0056b3; }
+        #log { 
+            background: #f8f9fa; 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            border-radius: 4px; 
+            height: 300px; 
+            overflow-y: auto; 
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Prueba de Carga de Biblias</h1>
+    
+    <div class="test-container">
+        <h2>Pruebas de Sistema</h2>
+        <button onclick="testVersionsFile()">1. Probar versions.json</button>
+        <button onclick="testBibleFiles()">2. Probar archivos de Biblia</button>
+        <button onclick="testConversion()">3. Probar conversión</button>
+        <button onclick="clearLog()">Limpiar Log</button>
+    </div>
+
+    <div class="test-container">
+        <h2>Log de Pruebas</h2>
+        <div id="log"></div>
+    </div>
+
+    <script src="js/bible-converter.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logDiv.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function testVersionsFile() {
+            log('🧪 Probando carga de versions.json...', 'info');
+            
+            try {
+                const response = await fetch('./data/versions.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                log(`✅ versions.json cargado exitosamente`, 'success');
+                log(`📊 Total de versiones: ${data.totalVersions}`, 'info');
+                
+                data.versions.forEach(version => {
+                    log(`  📖 ${version.id}: ${version.name} (${version.filename})`, 'info');
+                });
+                
+            } catch (error) {
+                log(`❌ Error cargando versions.json: ${error.message}`, 'error');
+            }
+        }
+
+        async function testBibleFiles() {
+            log('🧪 Probando carga de archivos de Biblia...', 'info');
+            
+            try {
+                // Cargar configuración de versiones
+                const versionsResponse = await fetch('./data/versions.json');
+                if (!versionsResponse.ok) {
+                    throw new Error('No se pudo cargar versions.json');
+                }
+                
+                const versionsData = await versionsResponse.json();
+                log(`📋 Probando ${versionsData.versions.length} biblias...`, 'info');
+                
+                for (const version of versionsData.versions) {
+                    try {
+                        log(`🔍 Probando: ${version.name}...`, 'info');
+                        
+                        const filePath = `./data/biblias-originales/${version.filename}`;
+                        const response = await fetch(filePath);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status} para ${version.filename}`);
+                        }
+                        
+                        const data = await response.json();
+                        
+                        if (!data.books || !Array.isArray(data.books)) {
+                            throw new Error(`Formato inválido en ${version.filename}`);
+                        }
+                        
+                        log(`  ✅ ${version.name}: ${data.books.length} libros encontrados`, 'success');
+                        
+                    } catch (error) {
+                        log(`  ❌ ${version.name}: ${error.message}`, 'error');
+                    }
+                }
+                
+                log('🏁 Prueba de archivos completada', 'info');
+                
+            } catch (error) {
+                log(`❌ Error en prueba de archivos: ${error.message}`, 'error');
+            }
+        }
+
+        async function testConversion() {
+            log('🧪 Probando conversión de formato...', 'info');
+            
+            try {
+                // Probar con RV1960
+                const response = await fetch('./data/biblias-originales/RV1960.json');
+                if (!response.ok) {
+                    throw new Error(`No se pudo cargar RV1960.json`);
+                }
+                
+                const originalData = await response.json();
+                log(`📖 Datos originales cargados: ${originalData.books.length} libros`, 'info');
+                
+                // Convertir usando el convertidor
+                if (window.BibleConverter) {
+                    const converted = BibleConverter.convertToAppFormat(originalData);
+                    const bookNames = Object.keys(converted);
+                    
+                    log(`✅ Conversión exitosa: ${bookNames.length} libros convertidos`, 'success');
+                    log(`📚 Primeros 5 libros: ${bookNames.slice(0, 5).join(', ')}`, 'info');
+                    
+                    // Verificar un capítulo específico
+                    if (converted['Génesis'] && converted['Génesis']['1']) {
+                        const verses = Object.keys(converted['Génesis']['1']).length;
+                        log(`📜 Génesis 1: ${verses} versículos encontrados`, 'success');
+                        log(`📝 Génesis 1:1: "${converted['Génesis']['1']['1']}"`, 'info');
+                    }
+                    
+                } else {
+                    log(`❌ BibleConverter no está disponible`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error en prueba de conversión: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-ejecutar prueba inicial
+        window.addEventListener('load', () => {
+            log('🚀 Sistema de pruebas iniciado', 'info');
+            log('👆 Haz clic en los botones arriba para ejecutar las pruebas', 'info');
+        });
+    </script>
+</body>
+</html>
