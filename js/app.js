@@ -35,7 +35,17 @@ class BibleApp {
         // Version selector
         document.getElementById('versionSelector').addEventListener('change', async (e) => {
             if (e.target.value) {
+                const previousBook = this.currentBook;
+                const previousChapter = this.currentChapter;
+                
                 await this.loadVersion(e.target.value);
+                
+                // Restore previous reading position if available
+                if (previousBook && previousChapter && this.books.includes(previousBook)) {
+                    console.log(`Restoring position: ${previousBook} ${previousChapter}`);
+                    await this.selectBook(previousBook);
+                    await this.loadChapter(previousBook, previousChapter);
+                }
             }
         });
 
@@ -60,6 +70,12 @@ class BibleApp {
         // Settings
         document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
         document.getElementById('closeSettings').addEventListener('click', () => this.closeSettings());
+        
+        // Compare versions
+        document.getElementById('compareBtn').addEventListener('click', () => this.openCompareModal());
+        document.getElementById('closeCompare').addEventListener('click', () => this.closeCompareModal());
+        document.getElementById('compareVersion1').addEventListener('change', () => this.updateComparison());
+        document.getElementById('compareVersion2').addEventListener('change', () => this.updateComparison());
         
         // Settings controls
         document.getElementById('fontSize').addEventListener('input', (e) => {
@@ -166,6 +182,10 @@ class BibleApp {
         try {
             console.log(`Loading version: ${versionId}`);
             
+            // Store current position before changing version
+            const previousBook = this.currentBook;
+            const previousChapter = this.currentChapter;
+            
             const version = this.versions.find(v => v.id === versionId);
             if (!version) {
                 throw new Error(`Configuración de versión no encontrada para: ${versionId}`);
@@ -236,6 +256,19 @@ class BibleApp {
             
             // Update UI
             this.populateBookSelector();
+            
+            // Restore previous position if available
+            if (previousBook && previousChapter && bibleData[previousBook]?.[previousChapter]) {
+                console.log('Restoring position:', previousBook, previousChapter);
+                this.selectBook(previousBook);
+                setTimeout(() => this.selectChapter(previousChapter), 100);
+            }
+            
+            // Update comparison if modal is open
+            if (document.getElementById('compareModal').style.display === 'block') {
+                this.updateComparison();
+            }
+            
             this.saveLastRead();
             
             // Update version selector
@@ -585,7 +618,167 @@ class BibleApp {
     }
 
     closeSettings() {
-        document.getElementById('settingsModal').classList.add('hidden');
+        document.getElementById('settingsModal').style.display = 'none';
+    }
+
+    async openCompareModal() {
+        const modal = document.getElementById('compareModal');
+        const version1Select = document.getElementById('compareVersion1');
+        const version2Select = document.getElementById('compareVersion2');
+        
+        // Clear previous options
+        version1Select.innerHTML = '<option value="">Selecciona versión 1</option>';
+        version2Select.innerHTML = '<option value="">Selecciona versión 2</option>';
+        
+        // Populate version selectors
+        this.versions.forEach(version => {
+            const option1 = document.createElement('option');
+            option1.value = version.id;
+            option1.textContent = version.name;
+            version1Select.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = version.id;
+            option2.textContent = version.name;
+            version2Select.appendChild(option2);
+        });
+        
+        // Set current version as version1
+        if (this.currentVersion) {
+            version1Select.value = this.currentVersion;
+        }
+        
+        modal.style.display = 'block';
+        this.updateComparison();
+    }
+
+    closeCompareModal() {
+        document.getElementById('compareModal').style.display = 'none';
+    }
+
+    async updateComparison() {
+        const version1Id = document.getElementById('compareVersion1').value;
+        const version2Id = document.getElementById('compareVersion2').value;
+        const comparisonContent = document.getElementById('comparisonContent');
+        
+        if (!version1Id || !version2Id) {
+            comparisonContent.innerHTML = '<p>Selecciona dos versiones para comparar</p>';
+            return;
+        }
+        
+        if (!this.currentBook || !this.currentChapter) {
+            comparisonContent.innerHTML = '<p>Selecciona un libro y capítulo primero</p>';
+            return;
+        }
+        
+        try {
+            // Load both versions using the same method as the main app
+            const version1Data = await this.loadVersionData(version1Id);
+            const version2Data = await this.loadVersionData(version2Id);
+            
+            if (!version1Data || !version2Data) {
+                comparisonContent.innerHTML = '<p>Error cargando las versiones</p>';
+                return;
+            }
+            
+            const version1Name = this.versions.find(v => v.id === version1Id)?.name || version1Id;
+            const version2Name = this.versions.find(v => v.id === version2Id)?.name || version2Id;
+            
+            // Get chapters from both versions
+            const chapter1 = version1Data[this.currentBook]?.[this.currentChapter];
+            const chapter2 = version2Data[this.currentBook]?.[this.currentChapter];
+            
+            if (!chapter1 || !chapter2) {
+                comparisonContent.innerHTML = '<p>Capítulo no encontrado en una de las versiones</p>';
+                return;
+            }
+            
+            // Create comparison HTML
+            let html = `
+                <div class="comparison-header">
+                    <h3>${this.currentBook} ${this.currentChapter}</h3>
+                </div>
+                <div class="version-columns">
+                    <div class="version-column">
+                        <h4>${version1Name}</h4>
+                        <div class="verses-column">
+            `;
+            
+            // Add verses from version 1
+            Object.keys(chapter1).forEach(verse => {
+                html += `<div class="verse"><strong>${verse}.</strong> ${chapter1[verse]}</div>`;
+            });
+            
+            html += `
+                        </div>
+                    </div>
+                    <div class="version-column">
+                        <h4>${version2Name}</h4>
+                        <div class="verses-column">
+            `;
+            
+            // Add verses from version 2
+            Object.keys(chapter2).forEach(verse => {
+                html += `<div class="verse"><strong>${verse}.</strong> ${chapter2[verse]}</div>`;
+            });
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            comparisonContent.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error updating comparison:', error);
+            comparisonContent.innerHTML = '<p>Error cargando las versiones para comparar</p>';
+        }
+    }
+
+    // Helper method to load version data without changing current version
+    async loadVersionData(versionId) {
+        try {
+            const version = this.versions.find(v => v.id === versionId);
+            if (!version) {
+                throw new Error(`Version not found: ${versionId}`);
+            }
+
+            // Try to load from cache first
+            const cacheKey = `bible_${versionId}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            
+            if (cachedData) {
+                try {
+                    return JSON.parse(cachedData);
+                } catch (e) {
+                    console.warn('Cache data corrupted for', versionId);
+                    localStorage.removeItem(cacheKey);
+                }
+            }
+            
+            // Load from server
+            const response = await fetch(`./data/biblias-originales/${version.filename}`);
+            if (!response.ok) {
+                throw new Error(`Failed to load ${version.name}`);
+            }
+            
+            const originalData = await response.json();
+            const convertedData = this.convertOriginalFormat(originalData);
+            
+            // Cache for future use
+            try {
+                localStorage.setItem(cacheKey, JSON.stringify(convertedData));
+            } catch (e) {
+                console.warn('Could not cache data for', versionId);
+            }
+            
+            return convertedData;
+            
+        } catch (error) {
+            console.error('Error loading version data:', error);
+            return null;
+        }
     }
 
     updateFontSize(size) {

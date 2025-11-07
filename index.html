@@ -19,6 +19,7 @@
                 <select id="versionSelector" class="version-selector">
                     <option value="">Seleccionar versión...</option>
                 </select>
+                <button id="compareBtn" class="icon-btn" title="Comparar versiones">🔄</button>
                 <button id="settingsBtn" class="icon-btn" title="Configuración">⚙️</button>
             </div>
         </div>
@@ -89,6 +90,29 @@
                     <label>
                         <input type="checkbox" id="showVerseNumbers"> Mostrar números de versículos
                     </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compare Versions Modal -->
+    <div id="compareModal" class="modal hidden">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>Comparar Versiones</h3>
+                <button id="closeCompare" class="close-btn">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="compare-controls">
+                    <select id="compareVersion1">
+                        <option value="">Selecciona versión 1</option>
+                    </select>
+                    <select id="compareVersion2">
+                        <option value="">Selecciona versión 2</option>
+                    </select>
+                </div>
+                <div id="comparisonContent" class="comparison-content">
+                    <p>Selecciona dos versiones para comparar</p>
                 </div>
             </div>
         </div>
