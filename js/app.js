@@ -171,6 +171,8 @@ class BibleApp {
                 throw new Error(`Configuración de versión no encontrada para: ${versionId}`);
             }
 
+            console.log(`Found version config:`, version);
+
             // Try to load from cache first
             const cacheKey = `bible_${versionId}`;
             const cachedData = localStorage.getItem(cacheKey);
@@ -178,28 +180,37 @@ class BibleApp {
             let bibleData;
             if (cachedData) {
                 console.log(`Loading ${versionId} from cache`);
-                bibleData = JSON.parse(cachedData);
-            } else {
-                console.log(`Loading ${versionId} from server`);
-                
-                // Use BibleDataManager if available, otherwise fallback
-                if (window.bibleDataManager) {
-                    bibleData = await window.bibleDataManager.loadBibleVersion(versionId);
-                } else {
-                    // Fallback method
-                    const response = await fetch(`./data/biblias-originales/${version.filename}`);
-                    if (!response.ok) {
-                        throw new Error(`No se pudo cargar ${version.name} (HTTP ${response.status})`);
-                    }
-                    
-                    const originalData = await response.json();
-                    if (!originalData.books || !Array.isArray(originalData.books)) {
-                        throw new Error(`Formato inválido en ${version.filename}`);
-                    }
-                    
-                    // Convert to app format
-                    bibleData = this.convertOriginalFormat(originalData);
+                try {
+                    bibleData = JSON.parse(cachedData);
+                } catch (e) {
+                    console.warn('Cache data corrupted, loading fresh:', e);
+                    localStorage.removeItem(cacheKey);
+                    bibleData = null;
                 }
+            }
+            
+            if (!bibleData) {
+                console.log(`Loading ${versionId} from server: ${version.filename}`);
+                
+                // Load from biblias-originales folder
+                const response = await fetch(`./data/biblias-originales/${version.filename}`);
+                if (!response.ok) {
+                    throw new Error(`No se pudo cargar ${version.name} (HTTP ${response.status})`);
+                }
+                
+                const originalData = await response.json();
+                console.log(`Loaded original data:`, {
+                    name: originalData.name,
+                    booksCount: originalData.books ? originalData.books.length : 0,
+                    firstBookName: originalData.books && originalData.books[0] ? originalData.books[0].name : 'N/A'
+                });
+                
+                if (!originalData.books || !Array.isArray(originalData.books)) {
+                    throw new Error(`Formato inválido en ${version.filename}`);
+                }
+                
+                // Convert to app format
+                bibleData = this.convertOriginalFormat(originalData);
                 
                 // Cache the data for offline use
                 try {
@@ -214,21 +225,50 @@ class BibleApp {
                 throw new Error(`Datos de la biblia ${version.name} están vacíos o corruptos`);
             }
 
+            // Set the data
             this.currentVersion = versionId;
             this.books = Object.keys(bibleData);
             this.bibleData = bibleData;
             
-            console.log(`Successfully loaded ${version.name} with ${this.books.length} books`);
+            console.log(`Successfully loaded ${version.name}:`);
+            console.log(`- Books: ${this.books.length}`);
+            console.log(`- First few books: ${this.books.slice(0, 3).join(', ')}`);
             
+            // Update UI
             this.populateBookSelector();
             this.saveLastRead();
             
-            document.getElementById('versionSelector').value = versionId;
-            this.showSuccess(`${version.name} cargada exitosamente`);
+            // Update version selector
+            const versionSelector = document.getElementById('versionSelector');
+            if (versionSelector) {
+                versionSelector.value = versionId;
+            }
+            
+            // Clear previous content
+            const chapterTitle = document.getElementById('chapterTitle');
+            const verseContainer = document.getElementById('verseContainer');
+            if (chapterTitle) chapterTitle.textContent = '';
+            if (verseContainer) {
+                verseContainer.innerHTML = `
+                    <div class="welcome-message">
+                        <h2>${version.name} cargada exitosamente</h2>
+                        <p>Selecciona un libro para comenzar a leer.</p>
+                        <p><strong>${this.books.length} libros disponibles</strong></p>
+                    </div>
+                `;
+            }
+            
+            this.showSuccess(`${version.name} cargada exitosamente (${this.books.length} libros)`);
             
         } catch (error) {
             console.error('Error loading version:', error);
             this.showError(`Error al cargar la versión: ${error.message}`);
+            
+            // Reset state on error
+            this.currentVersion = null;
+            this.books = [];
+            this.bibleData = null;
+            this.populateBookSelector();
         } finally {
             this.showLoading(false);
         }
@@ -236,42 +276,116 @@ class BibleApp {
 
     convertOriginalFormat(originalBible) {
         console.log('Converting original format to app format...');
+        console.log('Input data:', {
+            name: originalBible.name,
+            hasBooks: !!originalBible.books,
+            booksType: Array.isArray(originalBible.books) ? 'array' : typeof originalBible.books,
+            booksCount: originalBible.books ? originalBible.books.length : 0
+        });
+        
         const converted = {};
         
         if (!originalBible.books) {
             throw new Error('No se encontraron libros en la biblia');
         }
         
+        if (!Array.isArray(originalBible.books)) {
+            throw new Error('Los libros deben estar en formato array');
+        }
+        
         originalBible.books.forEach((book, bookIndex) => {
-            if (!book.name || !book.chapters) {
-                console.warn(`Libro inválido en índice ${bookIndex}:`, book);
+            if (!book) {
+                console.warn(`Libro nulo en índice ${bookIndex}`);
+                return;
+            }
+            
+            if (!book.name) {
+                console.warn(`Libro sin nombre en índice ${bookIndex}:`, book);
+                return;
+            }
+            
+            if (!book.chapters || !Array.isArray(book.chapters)) {
+                console.warn(`Libro "${book.name}" no tiene capítulos válidos:`, book.chapters);
                 return;
             }
             
             const bookName = book.name;
             converted[bookName] = {};
             
+            console.log(`Processing book: ${bookName} with ${book.chapters.length} chapters`);
+            
             book.chapters.forEach((chapter, chapterIndex) => {
                 const chapterNum = chapterIndex + 1;
                 converted[bookName][chapterNum] = {};
                 
-                if (Array.isArray(chapter)) {
-                    chapter.forEach(verse => {
-                        if (verse && verse.verse && verse.text) {
-                            converted[bookName][chapterNum][verse.verse] = verse.text;
-                        }
-                    });
+                if (!Array.isArray(chapter)) {
+                    console.warn(`Capítulo ${chapterNum} de ${bookName} no es un array:`, chapter);
+                    return;
+                }
+                
+                chapter.forEach((verse, verseIndex) => {
+                    if (!verse) {
+                        console.warn(`Versículo nulo en ${bookName} ${chapterNum}:${verseIndex + 1}`);
+                        return;
+                    }
+                    
+                    if (!verse.verse || !verse.text) {
+                        console.warn(`Versículo inválido en ${bookName} ${chapterNum}:`, verse);
+                        return;
+                    }
+                    
+                    converted[bookName][chapterNum][verse.verse] = verse.text;
+                });
+                
+                const verseCount = Object.keys(converted[bookName][chapterNum]).length;
+                if (verseCount === 0) {
+                    console.warn(`Capítulo ${chapterNum} de ${bookName} no tiene versículos válidos`);
                 }
             });
+            
+            const chapterCount = Object.keys(converted[bookName]).length;
+            if (chapterCount === 0) {
+                console.warn(`Libro ${bookName} no tiene capítulos válidos`);
+                delete converted[bookName];
+            }
         });
         
-        console.log(`Converted ${Object.keys(converted).length} books`);
+        const finalBookCount = Object.keys(converted).length;
+        console.log(`Conversion completed: ${finalBookCount} books processed`);
+        
+        if (finalBookCount === 0) {
+            throw new Error('No se pudieron convertir libros válidos de la biblia');
+        }
+        
+        // Log some sample data for verification
+        const firstBookName = Object.keys(converted)[0];
+        if (firstBookName) {
+            const firstBook = converted[firstBookName];
+            const firstChapter = Object.keys(firstBook)[0];
+            if (firstChapter) {
+                const verseCount = Object.keys(firstBook[firstChapter]).length;
+                console.log(`Sample: ${firstBookName} chapter ${firstChapter} has ${verseCount} verses`);
+            }
+        }
+        
         return converted;
     }
 
     populateBookSelector() {
         const selector = document.getElementById('bookSelector');
+        if (!selector) {
+            console.error('Book selector element not found');
+            return;
+        }
+
+        console.log(`Populating book selector with ${this.books.length} books`);
         selector.innerHTML = '<option value="">Seleccionar libro...</option>';
+        
+        if (!this.books || this.books.length === 0) {
+            console.warn('No books available to populate');
+            selector.innerHTML = '<option value="">No hay libros disponibles</option>';
+            return;
+        }
         
         this.books.forEach(book => {
             const option = document.createElement('option');
@@ -279,31 +393,61 @@ class BibleApp {
             option.textContent = book;
             selector.appendChild(option);
         });
+
+        console.log(`Book selector populated with: ${this.books.slice(0, 5).join(', ')}${this.books.length > 5 ? '...' : ''}`);
     }
 
     async selectBook(bookName) {
         try {
-            if (!this.bibleData || !this.bibleData[bookName]) {
-                throw new Error('Libro no encontrado');
+            console.log(`Selecting book: ${bookName}`);
+            
+            if (!this.bibleData) {
+                throw new Error('No hay datos de biblia cargados');
+            }
+            
+            if (!this.bibleData[bookName]) {
+                console.error('Available books:', Object.keys(this.bibleData));
+                throw new Error(`Libro "${bookName}" no encontrado en los datos cargados`);
             }
 
             this.currentBook = bookName;
             const chapters = Object.keys(this.bibleData[bookName]);
             
+            console.log(`Book "${bookName}" has ${chapters.length} chapters`);
+            
             this.populateChapterSelector(chapters.length);
             this.updateNavigationButtons();
             this.saveLastRead();
             
-            document.getElementById('bookSelector').value = bookName;
+            // Update book selector
+            const bookSelector = document.getElementById('bookSelector');
+            if (bookSelector) {
+                bookSelector.value = bookName;
+            }
             
-            // Auto-load first chapter
+            // Clear chapter display
+            const chapterTitle = document.getElementById('chapterTitle');
+            const verseContainer = document.getElementById('verseContainer');
+            if (chapterTitle) chapterTitle.textContent = '';
+            if (verseContainer) {
+                verseContainer.innerHTML = `
+                    <div class="welcome-message">
+                        <h2>${bookName}</h2>
+                        <p>Selecciona un capítulo para leer.</p>
+                        <p><strong>${chapters.length} capítulos disponibles</strong></p>
+                    </div>
+                `;
+            }
+            
+            // Auto-load first chapter if available
             if (chapters.length > 0) {
+                console.log(`Auto-loading first chapter of ${bookName}`);
                 await this.loadChapter(bookName, 1);
             }
             
         } catch (error) {
             console.error('Error selecting book:', error);
-            this.showError(error.message);
+            this.showError(`Error al seleccionar libro: ${error.message}`);
         }
     }
 
