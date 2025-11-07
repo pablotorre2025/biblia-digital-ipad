@@ -606,6 +606,12 @@ class BibleApp {
             if (typeof updateFavoriteButtons === 'function') {
                 updateFavoriteButtons();
             }
+            if (typeof updateNoteButtons === 'function') {
+                updateNoteButtons();
+            }
+            if (typeof updateVerseHighlights === 'function') {
+                updateVerseHighlights();
+            }
         }, 100);
         
         // Trigger enhanced features for this chapter

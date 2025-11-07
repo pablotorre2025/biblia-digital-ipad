@@ -24,7 +24,9 @@
                 <select id="versionSelector" class="version-selector">
                     <option value="">Seleccionar versión...</option>
                 </select>
-                <button id="favoritesBtn" class="icon-btn" title="Favoritos" onclick="openSimpleFavorites()">🔖</button>
+                <button id="favoritesBtn" class="icon-btn" title="Favoritos" onclick="openFavorites()">🔖</button>
+                <button id="notesBtn" class="icon-btn" title="Notas" onclick="openNotesViewer()">📝</button>
+                <button id="themesBtn" class="icon-btn" title="Temas" onclick="openThemeSettings()">🎨</button>
                 <button id="compareBtn" class="icon-btn" title="Comparar versiones">🔄</button>
                 <button id="settingsBtn" class="icon-btn" title="Configuración">⚙️</button>
             </div>
@@ -986,9 +988,1095 @@
             }
         }
         
-        // Función simple para favoritos (mantener compatibilidad)
-        function openSimpleFavorites() {
-            openFavorites();
+        // === SISTEMA DE NOTAS PERSONALES ===
+        
+        class NotesManager {
+            constructor() {
+                this.storageKey = 'bible-notes';
+                this.notes = this.loadNotes();
+                this.colors = [
+                    { name: 'Amarillo', value: '#fff3cd', border: '#ffc107' },
+                    { name: 'Verde', value: '#d4edda', border: '#28a745' },
+                    { name: 'Azul', value: '#d1ecf1', border: '#17a2b8' },
+                    { name: 'Naranja', value: '#ffe8d1', border: '#fd7e14' },
+                    { name: 'Rosa', value: '#f8d7da', border: '#dc3545' },
+                    { name: 'Morado', value: '#e2d9f3', border: '#6f42c1' }
+                ];
+            }
+            
+            loadNotes() {
+                try {
+                    const stored = localStorage.getItem(this.storageKey);
+                    return stored ? JSON.parse(stored) : {};
+                } catch (error) {
+                    console.error('Error loading notes:', error);
+                    return {};
+                }
+            }
+            
+            saveNotes() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.notes));
+                    return true;
+                } catch (error) {
+                    console.error('Error saving notes:', error);
+                    return false;
+                }
+            }
+            
+            addNote(book, chapter, verse, version, note, color = 0) {
+                const noteId = `${book}-${chapter}-${verse}-${version}`;
+                this.notes[noteId] = {
+                    id: noteId,
+                    book,
+                    chapter: parseInt(chapter),
+                    verse: parseInt(verse),
+                    version,
+                    note: note.trim(),
+                    color: this.colors[color],
+                    colorIndex: color,
+                    dateCreated: new Date().toISOString(),
+                    dateModified: new Date().toISOString(),
+                    reference: `${book} ${chapter}:${verse}`
+                };
+                
+                this.saveNotes();
+                return this.notes[noteId];
+            }
+            
+            updateNote(noteId, newNote, newColor = null) {
+                if (this.notes[noteId]) {
+                    this.notes[noteId].note = newNote.trim();
+                    this.notes[noteId].dateModified = new Date().toISOString();
+                    
+                    if (newColor !== null) {
+                        this.notes[noteId].color = this.colors[newColor];
+                        this.notes[noteId].colorIndex = newColor;
+                    }
+                    
+                    this.saveNotes();
+                    return this.notes[noteId];
+                }
+                return null;
+            }
+            
+            removeNote(noteId) {
+                if (this.notes[noteId]) {
+                    delete this.notes[noteId];
+                    this.saveNotes();
+                    return true;
+                }
+                return false;
+            }
+            
+            getNote(book, chapter, verse, version) {
+                const noteId = `${book}-${chapter}-${verse}-${version}`;
+                return this.notes[noteId] || null;
+            }
+            
+            hasNote(book, chapter, verse, version) {
+                const noteId = `${book}-${chapter}-${verse}-${version}`;
+                return !!this.notes[noteId];
+            }
+            
+            getAllNotes() {
+                return Object.values(this.notes);
+            }
+            
+            searchNotes(query) {
+                const normalizedQuery = normalizeText(query);
+                return Object.values(this.notes).filter(note => {
+                    const normalizedNote = normalizeText(note.note);
+                    const normalizedRef = normalizeText(note.reference);
+                    return normalizedNote.includes(normalizedQuery) || 
+                           normalizedRef.includes(normalizedQuery);
+                });
+            }
+            
+            exportNotes() {
+                const exportData = {
+                    exportDate: new Date().toISOString(),
+                    totalNotes: Object.keys(this.notes).length,
+                    notes: this.notes
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `biblia-notas-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            }
+            
+            getStats() {
+                const notes = Object.values(this.notes);
+                const bookStats = {};
+                const colorStats = {};
+                
+                notes.forEach(note => {
+                    bookStats[note.book] = (bookStats[note.book] || 0) + 1;
+                    colorStats[note.color.name] = (colorStats[note.color.name] || 0) + 1;
+                });
+                
+                return {
+                    total: notes.length,
+                    books: bookStats,
+                    colors: colorStats,
+                    averageLength: notes.length > 0 ? Math.round(notes.reduce((sum, note) => sum + note.note.length, 0) / notes.length) : 0
+                };
+            }
+        }
+        
+        // Inicializar manager de notas
+        const notesManager = new NotesManager();
+        
+        // Función para agregar/editar nota
+        function addNoteToVerse(book, chapter, verse) {
+            if (!window.bibleApp || !window.bibleApp.currentVersion) {
+                showToast('❌ Selecciona una versión bíblica primero', 'error');
+                return;
+            }
+            
+            const version = window.bibleApp.currentVersion;
+            const existingNote = notesManager.getNote(book, chapter, verse, version);
+            
+            showNoteModal(book, chapter, verse, version, existingNote);
+        }
+        
+        // Modal para crear/editar notas
+        function showNoteModal(book, chapter, verse, version, existingNote = null) {
+            let modal = document.getElementById('noteModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'noteModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.6);
+                    z-index: 1002;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            const reference = `${book} ${chapter}:${verse}`;
+            const isEditing = !!existingNote;
+            const currentNote = existingNote ? existingNote.note : '';
+            const currentColor = existingNote ? existingNote.colorIndex : 0;
+            
+            // Generar selector de colores
+            const colorOptions = notesManager.colors.map((color, index) => `
+                <label style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; cursor: pointer; transition: background 0.2s;" 
+                       onmouseover="this.style.background='#f5f5f5'" 
+                       onmouseout="this.style.background='transparent'">
+                    <input type="radio" name="noteColor" value="${index}" ${index === currentColor ? 'checked' : ''} 
+                           style="margin: 0;">
+                    <div style="width: 20px; height: 20px; background: ${color.value}; border: 2px solid ${color.border}; border-radius: 4px;"></div>
+                    <span style="font-size: 14px; color: #333;">${color.name}</span>
+                </label>
+            `).join('');
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 85%; min-width: 400px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                    
+                    <div style="padding: 20px; background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white;">
+                        <h2 style="margin: 0; font-size: 22px;">📝 ${isEditing ? 'Editar' : 'Agregar'} Nota</h2>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 16px;">${reference} - ${version}</p>
+                    </div>
+                    
+                    <div style="padding: 25px;">
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 8px; color: #333;">Nota personal:</label>
+                            <textarea id="noteText" 
+                                    placeholder="Escribe tu reflexión, comentario o recordatorio sobre este versículo..."
+                                    style="width: 100%; min-height: 120px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical; outline: none; transition: border-color 0.3s;"
+                                    onfocus="this.style.borderColor='#6c5ce7'"
+                                    onblur="this.style.borderColor='#e0e0e0'">${currentNote}</textarea>
+                            <div style="text-align: right; margin-top: 4px; color: #888; font-size: 12px;">
+                                <span id="charCounter">0</span> caracteres
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 25px;">
+                            <label style="display: block; font-weight: bold; margin-bottom: 12px; color: #333;">Color de resaltado:</label>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;">
+                                ${colorOptions}
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                            <button onclick="closeNoteModal()" 
+                                    style="background: #95a5a6; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background 0.3s;"
+                                    onmouseover="this.style.background='#7f8c8d'"
+                                    onmouseout="this.style.background='#95a5a6'">
+                                Cancelar
+                            </button>
+                            
+                            ${isEditing ? `
+                                <button onclick="deleteCurrentNote('${book}', ${chapter}, ${verse}, '${version}')"
+                                        style="background: #e74c3c; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background 0.3s;"
+                                        onmouseover="this.style.background='#c0392b'"
+                                        onmouseout="this.style.background='#e74c3c'">
+                                    🗑️ Eliminar
+                                </button>
+                            ` : ''}
+                            
+                            <button onclick="saveNoteFromModal('${book}', ${chapter}, ${verse}, '${version}', ${isEditing})"
+                                    style="background: #6c5ce7; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; transition: background 0.3s;"
+                                    onmouseover="this.style.background='#5f3dc4'"
+                                    onmouseout="this.style.background='#6c5ce7'">
+                                💾 ${isEditing ? 'Actualizar' : 'Guardar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+            
+            // Configurar contador de caracteres
+            const textarea = document.getElementById('noteText');
+            const counter = document.getElementById('charCounter');
+            
+            function updateCounter() {
+                counter.textContent = textarea.value.length;
+            }
+            
+            textarea.addEventListener('input', updateCounter);
+            updateCounter();
+            
+            // Focus en textarea
+            setTimeout(() => textarea.focus(), 100);
+        }
+        
+        function closeNoteModal() {
+            const modal = document.getElementById('noteModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        function saveNoteFromModal(book, chapter, verse, version, isEditing) {
+            const noteText = document.getElementById('noteText').value.trim();
+            const selectedColor = document.querySelector('input[name="noteColor"]:checked').value;
+            
+            if (!noteText) {
+                showToast('⚠️ La nota no puede estar vacía', 'warning');
+                return;
+            }
+            
+            if (isEditing) {
+                const noteId = `${book}-${chapter}-${verse}-${version}`;
+                notesManager.updateNote(noteId, noteText, parseInt(selectedColor));
+                showToast('✅ Nota actualizada correctamente', 'success');
+            } else {
+                notesManager.addNote(book, chapter, verse, version, noteText, parseInt(selectedColor));
+                showToast('✅ Nota agregada correctamente', 'success');
+            }
+            
+            closeNoteModal();
+            updateVerseHighlights();
+            updateNoteButtons();
+        }
+        
+        function deleteCurrentNote(book, chapter, verse, version) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
+                const noteId = `${book}-${chapter}-${verse}-${version}`;
+                if (notesManager.removeNote(noteId)) {
+                    showToast('🗑️ Nota eliminada', 'info');
+                    closeNoteModal();
+                    updateVerseHighlights();
+                    updateNoteButtons();
+                }
+            }
+        }
+        
+        // Función para mostrar todas las notas
+        function openNotesViewer() {
+            const notes = notesManager.getAllNotes();
+            showNotesModal(notes);
+        }
+        
+        function showNotesModal(notes) {
+            let modal = document.getElementById('notesModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'notesModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.6);
+                    z-index: 1001;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            if (notes.length === 0) {
+                modal.innerHTML = `
+                    <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 85%; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                        <div style="padding: 25px; text-align: center; background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white;">
+                            <h2 style="margin: 0; font-size: 24px;">📝 Mis Notas</h2>
+                            <p style="margin: 8px 0 0 0; opacity: 0.9;">Tus reflexiones y comentarios</p>
+                        </div>
+                        <div style="padding: 40px; text-align: center;">
+                            <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;">📝</div>
+                            <h3 style="color: #666; margin-bottom: 15px;">No tienes notas aún</h3>
+                            <p style="color: #888; margin-bottom: 25px; line-height: 1.6;">
+                                💡 Para agregar notas a versículos:<br>
+                                1. Navega a cualquier versículo<br>
+                                2. Haz clic en el 📝 que aparece junto al número<br>
+                                3. Escribe tu reflexión personal<br>
+                                4. ¡Tu nota se guardará con colores!
+                            </p>
+                            <button onclick="closeNotesModal()" style="background: #6c5ce7; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                                Entendido
+                            </button>
+                        </div>
+                    </div>
+                `;
+                modal.style.display = 'flex';
+                return;
+            }
+            
+            const stats = notesManager.getStats();
+            const notesHtml = notes.map((note, index) => `
+                <div style="margin-bottom: 20px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 5px solid ${note.color.border};">
+                    
+                    <div style="background: ${note.color.value}; padding: 15px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <strong style="color: #333; font-size: 16px; cursor: pointer;" 
+                                    onclick="goToNoteVerse('${note.book}', ${note.chapter}, ${note.verse})"
+                                    onmouseover="this.style.textDecoration='underline'"
+                                    onmouseout="this.style.textDecoration='none'">
+                                ${note.reference}
+                            </strong>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="editNote('${note.book}', ${note.chapter}, ${note.verse}, '${note.version}')"
+                                        style="background: #3498db; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                    ✏️ Editar
+                                </button>
+                                <button onclick="deleteNote('${note.id}')"
+                                        style="background: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div style="background: rgba(255,255,255,0.7); padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                            <span style="background: linear-gradient(135deg, #333, #555); color: white; padding: 2px 6px; border-radius: 8px; font-size: 11px; font-weight: bold;">
+                                ${note.version}
+                            </span>
+                        </div>
+                        
+                        <div style="color: #333; font-size: 12px; opacity: 0.8;">
+                            📅 Creada: ${new Date(note.dateCreated).toLocaleDateString('es-ES', { 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                            ${note.dateModified !== note.dateCreated ? ` • Editada: ${new Date(note.dateModified).toLocaleDateString('es-ES', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}` : ''}
+                        </div>
+                    </div>
+                    
+                    <div style="background: white; padding: 15px;">
+                        <div style="line-height: 1.6; color: #333; font-style: italic;">
+                            "${note.note}"
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            modal.innerHTML = `
+                <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 85%; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                    
+                    <div style="padding: 20px; background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h2 style="margin: 0; font-size: 22px;">📝 Mis Notas</h2>
+                                <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
+                                    ${stats.total} nota${stats.total !== 1 ? 's' : ''} • ${Object.keys(stats.books).length} libro${Object.keys(stats.books).length !== 1 ? 's' : ''} • Promedio: ${stats.averageLength} caracteres
+                                </p>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="searchInNotes()" 
+                                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                    🔍 Buscar
+                                </button>
+                                <button onclick="exportNotes()" 
+                                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                    📤 Exportar
+                                </button>
+                                <button onclick="closeNotesModal()" 
+                                        style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 18px; width: 36px; height: 36px;">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="max-height: 65vh; overflow-y: auto; padding: 20px;">
+                        ${notesHtml}
+                    </div>
+                    
+                    <div style="padding: 15px; background: #f8f9fa; border-top: 1px solid #e0e0e0; text-align: center;">
+                        <div style="color: #666; font-size: 13px; margin-bottom: 5px;">
+                            💡 Haz clic en cualquier referencia para ir al versículo
+                        </div>
+                        <div style="color: #888; font-size: 12px;">
+                            Las notas se guardan automáticamente con colores personalizables
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeNotesModal() {
+            const modal = document.getElementById('notesModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        function goToNoteVerse(book, chapter, verse) {
+            closeNotesModal();
+            if (window.bibleApp) {
+                window.bibleApp.selectBook(book).then(() => {
+                    setTimeout(() => {
+                        window.bibleApp.loadChapter(book, parseInt(chapter)).then(() => {
+                            setTimeout(() => {
+                                const verseElement = document.querySelector(`[data-verse="${verse}"]`);
+                                if (verseElement) {
+                                    verseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    highlightVerse(verseElement, 'note');
+                                }
+                            }, 500);
+                        });
+                    }, 200);
+                });
+            }
+        }
+        
+        function editNote(book, chapter, verse, version) {
+            closeNotesModal();
+            setTimeout(() => {
+                addNoteToVerse(book, chapter, verse);
+            }, 300);
+        }
+        
+        function deleteNote(noteId) {
+            if (confirm('¿Estás seguro de que quieres eliminar esta nota?')) {
+                if (notesManager.removeNote(noteId)) {
+                    showToast('🗑️ Nota eliminada', 'info');
+                    openNotesViewer(); // Refrescar modal
+                    updateVerseHighlights();
+                    updateNoteButtons();
+                }
+            }
+        }
+        
+        function exportNotes() {
+            notesManager.exportNotes();
+            showToast('📤 Notas exportadas exitosamente', 'success');
+        }
+        
+        function searchInNotes() {
+            const query = prompt('🔍 Buscar en notas:\n\n(Puedes buscar por contenido de la nota o referencia)');
+            if (query && query.trim()) {
+                const results = notesManager.searchNotes(query.trim());
+                showNotesModal(results);
+            }
+        }
+        
+        // Funciones para actualizar interfaz
+        function updateNoteButtons() {
+            const verses = document.querySelectorAll('[data-verse]');
+            verses.forEach(verseElement => {
+                const verse = verseElement.getAttribute('data-verse');
+                if (window.bibleApp && window.bibleApp.currentBook && window.bibleApp.currentChapter) {
+                    addNoteButtonToVerse(verseElement, window.bibleApp.currentBook, window.bibleApp.currentChapter, verse);
+                }
+            });
+        }
+        
+        function addNoteButtonToVerse(verseElement, book, chapter, verse) {
+            // Evitar duplicar botones
+            if (verseElement.querySelector('.note-btn')) return;
+            
+            const hasNote = notesManager.hasNote(book, chapter, verse, window.bibleApp?.currentVersion);
+            
+            const noteButton = document.createElement('button');
+            noteButton.className = 'note-btn';
+            noteButton.innerHTML = hasNote ? '📝' : '📄';
+            noteButton.style.cssText = `
+                background: none;
+                border: none;
+                font-size: 16px;
+                cursor: pointer;
+                padding: 4px;
+                margin-left: 6px;
+                opacity: 0.7;
+                transition: all 0.2s ease;
+            `;
+            
+            if (hasNote) {
+                noteButton.title = 'Editar nota';
+            } else {
+                noteButton.title = 'Agregar nota';
+            }
+            
+            noteButton.onclick = (e) => {
+                e.stopPropagation();
+                addNoteToVerse(book, chapter, verse);
+            };
+            
+            noteButton.onmouseover = () => {
+                noteButton.style.opacity = '1';
+                noteButton.style.transform = 'scale(1.2)';
+            };
+            
+            noteButton.onmouseout = () => {
+                noteButton.style.opacity = '0.7';
+                noteButton.style.transform = 'scale(1)';
+            };
+            
+            // Insertar el botón después del botón de favoritos
+            const favButton = verseElement.querySelector('.favorite-btn');
+            if (favButton) {
+                favButton.parentNode.insertBefore(noteButton, favButton.nextSibling);
+            } else {
+                const verseNumber = verseElement.querySelector('.verse-number, strong');
+                if (verseNumber) {
+                    verseNumber.appendChild(noteButton);
+                } else {
+                    verseElement.insertBefore(noteButton, verseElement.firstChild);
+                }
+            }
+        }
+        
+        function updateVerseHighlights() {
+            if (!window.bibleApp || !window.bibleApp.currentBook || !window.bibleApp.currentChapter) return;
+            
+            const verses = document.querySelectorAll('[data-verse]');
+            verses.forEach(verseElement => {
+                const verse = verseElement.getAttribute('data-verse');
+                const note = notesManager.getNote(
+                    window.bibleApp.currentBook, 
+                    window.bibleApp.currentChapter, 
+                    verse, 
+                    window.bibleApp.currentVersion
+                );
+                
+                if (note) {
+                    verseElement.style.background = note.color.value;
+                    verseElement.style.borderLeft = `4px solid ${note.color.border}`;
+                    verseElement.style.padding = '12px';
+                    verseElement.style.margin = '8px 0';
+                    verseElement.style.borderRadius = '6px';
+                    verseElement.style.boxShadow = `0 2px 8px ${note.color.border}20`;
+                } else {
+                    verseElement.style.background = '';
+                    verseElement.style.borderLeft = '';
+                    verseElement.style.padding = '';
+                    verseElement.style.margin = '';
+                    verseElement.style.borderRadius = '';
+                    verseElement.style.boxShadow = '';
+                }
+            });
+        }
+        
+        // === SISTEMA DE TEMAS PERSONALIZABLES ===
+        
+        class ThemeManager {
+            constructor() {
+                this.storageKey = 'bible-theme-settings';
+                this.settings = this.loadSettings();
+                this.themes = {
+                    light: {
+                        name: 'Claro',
+                        background: '#ffffff',
+                        surface: '#f8f9fa',
+                        primary: '#4285f4',
+                        text: '#333333',
+                        textSecondary: '#666666',
+                        border: '#e0e0e0',
+                        shadow: 'rgba(0,0,0,0.1)'
+                    },
+                    dark: {
+                        name: 'Oscuro',
+                        background: '#121212',
+                        surface: '#1e1e1e',
+                        primary: '#bb86fc',
+                        text: '#ffffff',
+                        textSecondary: '#b0b0b0',
+                        border: '#333333',
+                        shadow: 'rgba(255,255,255,0.1)'
+                    },
+                    sepia: {
+                        name: 'Sepia',
+                        background: '#f4f1e8',
+                        surface: '#ede6d3',
+                        primary: '#8b4513',
+                        text: '#3d2914',
+                        textSecondary: '#6b4423',
+                        border: '#d4c4a8',
+                        shadow: 'rgba(139,69,19,0.1)'
+                    },
+                    blue: {
+                        name: 'Azul Noche',
+                        background: '#0f1419',
+                        surface: '#1a242f',
+                        primary: '#64b5f6',
+                        text: '#e1f5fe',
+                        textSecondary: '#b3e5fc',
+                        border: '#2d3748',
+                        shadow: 'rgba(100,181,246,0.1)'
+                    },
+                    forest: {
+                        name: 'Bosque',
+                        background: '#1b2b1b',
+                        surface: '#2d3a2d',
+                        primary: '#81c784',
+                        text: '#e8f5e8',
+                        textSecondary: '#c8e6c9',
+                        border: '#4a5d4a',
+                        shadow: 'rgba(129,199,132,0.1)'
+                    }
+                };
+                
+                this.applyTheme();
+                this.updateSystemMetaColor();
+            }
+            
+            loadSettings() {
+                try {
+                    const stored = localStorage.getItem(this.storageKey);
+                    return stored ? JSON.parse(stored) : {
+                        theme: 'light',
+                        fontSize: 18,
+                        lineHeight: 1.6,
+                        fontFamily: 'system',
+                        textAlign: 'left',
+                        maxWidth: '800px',
+                        padding: '20px'
+                    };
+                } catch (error) {
+                    console.error('Error loading theme settings:', error);
+                    return this.getDefaultSettings();
+                }
+            }
+            
+            getDefaultSettings() {
+                return {
+                    theme: 'light',
+                    fontSize: 18,
+                    lineHeight: 1.6,
+                    fontFamily: 'system',
+                    textAlign: 'left',
+                    maxWidth: '800px',
+                    padding: '20px'
+                };
+            }
+            
+            saveSettings() {
+                try {
+                    localStorage.setItem(this.storageKey, JSON.stringify(this.settings));
+                    return true;
+                } catch (error) {
+                    console.error('Error saving theme settings:', error);
+                    return false;
+                }
+            }
+            
+            updateSetting(key, value) {
+                this.settings[key] = value;
+                this.saveSettings();
+                this.applyTheme();
+                
+                if (key === 'theme') {
+                    this.updateSystemMetaColor();
+                }
+            }
+            
+            applyTheme() {
+                const theme = this.themes[this.settings.theme];
+                const root = document.documentElement;
+                
+                // Variables CSS para el tema
+                root.style.setProperty('--bg-color', theme.background);
+                root.style.setProperty('--surface-color', theme.surface);
+                root.style.setProperty('--primary-color', theme.primary);
+                root.style.setProperty('--text-color', theme.text);
+                root.style.setProperty('--text-secondary', theme.textSecondary);
+                root.style.setProperty('--border-color', theme.border);
+                root.style.setProperty('--shadow-color', theme.shadow);
+                
+                // Configuraciones de texto
+                root.style.setProperty('--font-size', `${this.settings.fontSize}px`);
+                root.style.setProperty('--line-height', this.settings.lineHeight);
+                root.style.setProperty('--text-align', this.settings.textAlign);
+                root.style.setProperty('--max-width', this.settings.maxWidth);
+                root.style.setProperty('--content-padding', this.settings.padding);
+                
+                // Font family
+                const fontFamilies = {
+                    system: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                    serif: 'Georgia, "Times New Roman", Times, serif',
+                    mono: 'Menlo, Monaco, "Courier New", monospace'
+                };
+                root.style.setProperty('--font-family', fontFamilies[this.settings.fontFamily]);
+                
+                // Aplicar al body
+                document.body.style.background = theme.background;
+                document.body.style.color = theme.text;
+                document.body.style.fontFamily = fontFamilies[this.settings.fontFamily];
+                document.body.style.fontSize = `${this.settings.fontSize}px`;
+                document.body.style.lineHeight = this.settings.lineHeight;
+                
+                // Aplicar estilos a elementos específicos
+                this.updateElementStyles(theme);
+            }
+            
+            updateElementStyles(theme) {
+                // Header
+                const header = document.querySelector('header');
+                if (header) {
+                    header.style.background = theme.surface;
+                    header.style.borderBottom = `1px solid ${theme.border}`;
+                    header.style.boxShadow = `0 2px 10px ${theme.shadow}`;
+                }
+                
+                // Containers
+                const containers = document.querySelectorAll('.container, .content');
+                containers.forEach(container => {
+                    container.style.maxWidth = this.settings.maxWidth;
+                    container.style.padding = this.settings.padding;
+                });
+                
+                // Verses
+                const verses = document.querySelectorAll('.verse');
+                verses.forEach(verse => {
+                    verse.style.color = theme.text;
+                    verse.style.textAlign = this.settings.textAlign;
+                });
+                
+                // Buttons
+                const buttons = document.querySelectorAll('button:not(.favorite-btn):not(.note-btn)');
+                buttons.forEach(button => {
+                    if (!button.style.background || button.style.background === 'none') {
+                        button.style.background = theme.surface;
+                        button.style.color = theme.text;
+                        button.style.border = `1px solid ${theme.border}`;
+                    }
+                });
+                
+                // Selects
+                const selects = document.querySelectorAll('select');
+                selects.forEach(select => {
+                    select.style.background = theme.surface;
+                    select.style.color = theme.text;
+                    select.style.border = `1px solid ${theme.border}`;
+                });
+                
+                // Update any existing highlights to match theme
+                setTimeout(() => {
+                    if (typeof updateVerseHighlights === 'function') {
+                        updateVerseHighlights();
+                    }
+                }, 100);
+            }
+            
+            updateSystemMetaColor() {
+                const theme = this.themes[this.settings.theme];
+                
+                // Update meta theme-color for mobile browsers
+                let metaThemeColor = document.querySelector('meta[name="theme-color"]');
+                if (!metaThemeColor) {
+                    metaThemeColor = document.createElement('meta');
+                    metaThemeColor.name = 'theme-color';
+                    document.head.appendChild(metaThemeColor);
+                }
+                metaThemeColor.content = theme.surface;
+                
+                // Update apple-mobile-web-app-status-bar-style
+                let metaStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+                if (!metaStatusBar) {
+                    metaStatusBar = document.createElement('meta');
+                    metaStatusBar.name = 'apple-mobile-web-app-status-bar-style';
+                    document.head.appendChild(metaStatusBar);
+                }
+                metaStatusBar.content = this.settings.theme === 'dark' ? 'black-translucent' : 'default';
+            }
+            
+            getCurrentTheme() {
+                return this.themes[this.settings.theme];
+            }
+            
+            getThemesList() {
+                return Object.entries(this.themes).map(([key, theme]) => ({
+                    id: key,
+                    name: theme.name,
+                    current: key === this.settings.theme
+                }));
+            }
+            
+            exportSettings() {
+                const exportData = {
+                    exportDate: new Date().toISOString(),
+                    settings: this.settings,
+                    version: '1.0'
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `biblia-tema-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            }
+        }
+        
+        // Inicializar manager de temas
+        const themeManager = new ThemeManager();
+        
+        // Función para abrir configuración de temas
+        function openThemeSettings() {
+            showThemeModal();
+        }
+        
+        function showThemeModal() {
+            let modal = document.getElementById('themeModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'themeModal';
+                modal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0,0,0,0.6);
+                    z-index: 1003;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            const themes = themeManager.getThemesList();
+            const settings = themeManager.settings;
+            
+            const themeOptions = themes.map(theme => {
+                const themeObj = themeManager.themes[theme.id];
+                return `
+                    <label style="display: block; padding: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 2px solid ${theme.current ? themeObj.primary : 'transparent'}; background: ${theme.current ? themeObj.surface : 'transparent'};" 
+                           onmouseover="this.style.background='${themeObj.surface}'" 
+                           onmouseout="this.style.background='${theme.current ? themeObj.surface : 'transparent'}'">
+                        <input type="radio" name="themeSelect" value="${theme.id}" ${theme.current ? 'checked' : ''} 
+                               style="margin-right: 8px;" onchange="changeTheme('${theme.id}')">
+                        <div style="display: inline-flex; align-items: center; gap: 12px;">
+                            <div style="display: flex; gap: 4px;">
+                                <div style="width: 16px; height: 16px; background: ${themeObj.background}; border: 1px solid ${themeObj.border}; border-radius: 50%;"></div>
+                                <div style="width: 16px; height: 16px; background: ${themeObj.surface}; border: 1px solid ${themeObj.border}; border-radius: 50%;"></div>
+                                <div style="width: 16px; height: 16px; background: ${themeObj.primary}; border: 1px solid ${themeObj.border}; border-radius: 50%;"></div>
+                            </div>
+                            <span style="font-weight: ${theme.current ? 'bold' : 'normal'}; color: var(--text-color);">${theme.name}</span>
+                        </div>
+                    </label>
+                `;
+            }).join('');
+            
+            modal.innerHTML = `
+                <div style="background: var(--bg-color); border-radius: 12px; max-width: 90%; max-height: 85%; min-width: 400px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3); border: 1px solid var(--border-color);">
+                    
+                    <div style="padding: 20px; background: linear-gradient(135deg, var(--primary-color), var(--primary-color)aa); color: white;">
+                        <h2 style="margin: 0; font-size: 22px;">🎨 Temas y Configuración</h2>
+                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Personaliza la apariencia de la aplicación</p>
+                    </div>
+                    
+                    <div style="padding: 25px; max-height: 70vh; overflow-y: auto;">
+                        
+                        <!-- Temas -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin: 0 0 15px 0; color: var(--text-color); font-size: 18px;">🌈 Temas</h3>
+                            <div style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+                                ${themeOptions}
+                            </div>
+                        </div>
+                        
+                        <!-- Tipografía -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin: 0 0 15px 0; color: var(--text-color); font-size: 18px;">🔤 Tipografía</h3>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-color);">Tamaño de fuente:</label>
+                                <input type="range" id="fontSizeSlider" min="14" max="24" value="${settings.fontSize}" 
+                                       style="width: 100%; margin-bottom: 5px;" oninput="updateFontSize(this.value)">
+                                <div style="text-align: center; color: var(--text-secondary); font-size: 12px;">
+                                    <span id="fontSizeDisplay">${settings.fontSize}px</span>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-color);">Espaciado de línea:</label>
+                                <input type="range" id="lineHeightSlider" min="1.2" max="2.0" step="0.1" value="${settings.lineHeight}" 
+                                       style="width: 100%; margin-bottom: 5px;" oninput="updateLineHeight(this.value)">
+                                <div style="text-align: center; color: var(--text-secondary); font-size: 12px;">
+                                    <span id="lineHeightDisplay">${settings.lineHeight}</span>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-color);">Familia de fuente:</label>
+                                <select id="fontFamilySelect" onchange="updateFontFamily(this.value)" 
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-color);">
+                                    <option value="system" ${settings.fontFamily === 'system' ? 'selected' : ''}>Sistema</option>
+                                    <option value="serif" ${settings.fontFamily === 'serif' ? 'selected' : ''}>Serif (Georgia)</option>
+                                    <option value="mono" ${settings.fontFamily === 'mono' ? 'selected' : ''}>Monospace</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Layout -->
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="margin: 0 0 15px 0; color: var(--text-color); font-size: 18px;">📐 Diseño</h3>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-color);">Alineación del texto:</label>
+                                <select id="textAlignSelect" onchange="updateTextAlign(this.value)" 
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-color);">
+                                    <option value="left" ${settings.textAlign === 'left' ? 'selected' : ''}>Izquierda</option>
+                                    <option value="center" ${settings.textAlign === 'center' ? 'selected' : ''}>Centrado</option>
+                                    <option value="justify" ${settings.textAlign === 'justify' ? 'selected' : ''}>Justificado</option>
+                                </select>
+                            </div>
+                            
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-weight: bold; margin-bottom: 8px; color: var(--text-color);">Ancho máximo del contenido:</label>
+                                <select id="maxWidthSelect" onchange="updateMaxWidth(this.value)" 
+                                        style="width: 100%; padding: 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-color); color: var(--text-color);">
+                                    <option value="600px" ${settings.maxWidth === '600px' ? 'selected' : ''}>Estrecho (600px)</option>
+                                    <option value="800px" ${settings.maxWidth === '800px' ? 'selected' : ''}>Normal (800px)</option>
+                                    <option value="1000px" ${settings.maxWidth === '1000px' ? 'selected' : ''}>Ancho (1000px)</option>
+                                    <option value="100%" ${settings.maxWidth === '100%' ? 'selected' : ''}>Completo</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Vista previa -->
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="margin: 0 0 10px 0; color: var(--text-color); font-size: 18px;">👁️ Vista previa</h3>
+                            <div id="themePreview" style="padding: 15px; border-radius: 8px; border: 2px solid var(--border-color); background: var(--surface-color); color: var(--text-color); font-family: var(--font-family); font-size: var(--font-size); line-height: var(--line-height); text-align: var(--text-align);">
+                                <div style="margin-bottom: 8px;"><span style="font-weight: bold; color: var(--primary-color);">Juan 3:16</span></div>
+                                <div>Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.</div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div style="padding: 20px; background: var(--surface-color); border-top: 1px solid var(--border-color); display: flex; gap: 12px; justify-content: flex-end;">
+                        <button onclick="resetThemeSettings()" 
+                                style="background: var(--text-secondary); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            🔄 Resetear
+                        </button>
+                        <button onclick="exportThemeSettings()" 
+                                style="background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            📤 Exportar
+                        </button>
+                        <button onclick="closeThemeModal()" 
+                                style="background: var(--primary-color); color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            ✅ Cerrar
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function closeThemeModal() {
+            const modal = document.getElementById('themeModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        function changeTheme(themeId) {
+            themeManager.updateSetting('theme', themeId);
+            updateThemePreview();
+            showToast(`🎨 Tema cambiado a ${themeManager.themes[themeId].name}`, 'success');
+        }
+        
+        function updateFontSize(size) {
+            themeManager.updateSetting('fontSize', parseInt(size));
+            document.getElementById('fontSizeDisplay').textContent = `${size}px`;
+            updateThemePreview();
+        }
+        
+        function updateLineHeight(height) {
+            themeManager.updateSetting('lineHeight', parseFloat(height));
+            document.getElementById('lineHeightDisplay').textContent = height;
+            updateThemePreview();
+        }
+        
+        function updateFontFamily(family) {
+            themeManager.updateSetting('fontFamily', family);
+            updateThemePreview();
+        }
+        
+        function updateTextAlign(align) {
+            themeManager.updateSetting('textAlign', align);
+            updateThemePreview();
+        }
+        
+        function updateMaxWidth(width) {
+            themeManager.updateSetting('maxWidth', width);
+            updateThemePreview();
+        }
+        
+        function updateThemePreview() {
+            const preview = document.getElementById('themePreview');
+            if (preview) {
+                preview.style.fontFamily = 'var(--font-family)';
+                preview.style.fontSize = 'var(--font-size)';
+                preview.style.lineHeight = 'var(--line-height)';
+                preview.style.textAlign = 'var(--text-align)';
+                preview.style.background = 'var(--surface-color)';
+                preview.style.color = 'var(--text-color)';
+                preview.style.border = '2px solid var(--border-color)';
+            }
+        }
+        
+        function resetThemeSettings() {
+            if (confirm('¿Estás seguro de que quieres resetear todos los ajustes de tema?')) {
+                themeManager.settings = themeManager.getDefaultSettings();
+                themeManager.saveSettings();
+                themeManager.applyTheme();
+                showToast('🔄 Configuración reseteada', 'info');
+                closeThemeModal();
+                setTimeout(() => openThemeSettings(), 300);
+            }
+        }
+        
+        function exportThemeSettings() {
+            themeManager.exportSettings();
+            showToast('📤 Configuración de tema exportada', 'success');
         }
     </script>
     
