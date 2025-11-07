@@ -590,12 +590,10 @@ class BibleApp {
         
         let html = '';
         Object.entries(verses).forEach(([verseNum, verseText]) => {
-            const showNumbers = this.settings.showVerseNumbers;
-            html += `<div class="verse">`;
-            if (showNumbers) {
-                html += `<span class="verse-number">${verseNum}</span>`;
-            }
-            html += `${verseText}</div>`;
+            html += `<div class="verse" data-verse="${verseNum}">`;
+            html += `<span class="verse-number">${verseNum}</span>`;
+            html += `<span class="verse-text">${verseText}</span>`;
+            html += `</div>`;
         });
         
         containerElement.innerHTML = html;
@@ -1010,11 +1008,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize the main app
     window.bibleApp = new BibleApp();
     
-    // Initialize enhanced features (Level 1)
+    // Initialize enhanced features (Level 1) with proper delay
     setTimeout(() => {
+        console.log('Initializing Bible Features...');
         if (window.BibleFeatures && window.bibleApp) {
             window.bibleFeatures = new BibleFeatures(window.bibleApp);
-            console.log('Bible Features Level 1 initialized');
+            console.log('Bible Features Level 1 initialized successfully');
+            
+            // Test if elements are available
+            console.log('Testing element availability:');
+            console.log('- Search input:', !!document.getElementById('searchInput'));
+            console.log('- Search button:', !!document.getElementById('searchBtn'));
+            console.log('- Favorites button:', !!document.getElementById('favoritesBtn'));
+        } else {
+            console.error('Failed to initialize Bible Features - dependencies missing');
         }
-    }, 500);
+    }, 1000); // Increased delay to ensure DOM is fully ready
 });

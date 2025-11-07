@@ -22,32 +22,49 @@ class BibleFeatures {
     }
 
     setupEventListeners() {
+        console.log('Setting up enhanced event listeners...');
+        
         // Search functionality
         const searchBtn = document.getElementById('searchBtn');
         const searchInput = document.getElementById('searchInput');
         
+        console.log('Search elements found:', { searchBtn: !!searchBtn, searchInput: !!searchInput });
+        
         if (searchBtn && searchInput) {
-            searchBtn.addEventListener('click', () => this.performSearch());
-            searchInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.performSearch();
+            console.log('Adding search event listeners...');
+            searchBtn.addEventListener('click', () => {
+                console.log('Search button clicked');
+                this.performSearch();
             });
-            searchInput.addEventListener('input', (e) => {
-                if (e.target.value.length > 2) {
-                    this.debounce(() => this.performSearch(), 500)();
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    console.log('Enter key pressed in search');
+                    this.performSearch();
                 }
             });
+        } else {
+            console.warn('Search elements not found! Make sure HTML elements exist.');
         }
 
         // Favorites functionality
         const favoritesBtn = document.getElementById('favoritesBtn');
         const closeFavorites = document.getElementById('closeFavorites');
-        const exportFavorites = document.getElementById('exportFavorites');
-        const categoryFilter = document.getElementById('categoryFilter');
-
-        if (favoritesBtn) favoritesBtn.addEventListener('click', () => this.openFavoritesModal());
-        if (closeFavorites) closeFavorites.addEventListener('click', () => this.closeFavoritesModal());
-        if (exportFavorites) exportFavorites.addEventListener('click', () => this.exportFavorites());
-        if (categoryFilter) categoryFilter.addEventListener('change', () => this.filterFavorites());
+        
+        console.log('Favorites elements found:', { favoritesBtn: !!favoritesBtn, closeFavorites: !!closeFavorites });
+        
+        if (favoritesBtn) {
+            console.log('Adding favorites event listener...');
+            favoritesBtn.addEventListener('click', () => {
+                console.log('Favorites button clicked');
+                this.openFavoritesModal();
+            });
+        } else {
+            console.warn('Favorites button not found!');
+        }
+        
+        if (closeFavorites) {
+            closeFavorites.addEventListener('click', () => this.closeFavoritesModal());
+        }
 
         // Enhanced settings
         const themeSelect = document.getElementById('themeSelect');
@@ -86,20 +103,29 @@ class BibleFeatures {
     // ==========================================
 
     performSearch() {
-        const query = document.getElementById('searchInput').value.trim();
+        console.log('=== PERFORMING SEARCH ===');
+        const searchInput = document.getElementById('searchInput');
+        const query = searchInput ? searchInput.value.trim() : '';
+        
+        console.log('Search query:', query);
+        
         if (query.length < 2) {
             alert('Por favor, introduce al menos 2 caracteres para buscar.');
             return;
         }
 
-        console.log('Performing search for:', query);
-        
         if (!this.app.bibleData || !this.app.currentVersion) {
             alert('Por favor, selecciona una versión de la Biblia primero.');
             return;
         }
 
+        console.log('Bible data available:', !!this.app.bibleData);
+        console.log('Current version:', this.app.currentVersion);
+        console.log('Available books:', Object.keys(this.app.bibleData).slice(0, 5));
+        
         const results = this.searchInBible(query);
+        console.log('Search results found:', results.length);
+        
         this.displaySearchResults(query, results);
         this.openSearchModal();
     }
@@ -266,10 +292,17 @@ class BibleFeatures {
     }
 
     openFavoritesModal() {
+        console.log('=== OPENING FAVORITES MODAL ===');
         const modal = document.getElementById('favoritesModal');
+        console.log('Favorites modal found:', !!modal);
+        
         if (modal) {
             modal.style.display = 'block';
+            console.log('Modal displayed, now loading favorites...');
             this.displayFavorites();
+        } else {
+            console.error('Favorites modal not found in DOM!');
+            alert('Error: Modal de favoritos no encontrado. Verifica la implementación HTML.');
         }
     }
 
@@ -631,6 +664,18 @@ Escribe el nombre o número:`, 'general');
             clearTimeout(timeout);
             timeout = setTimeout(later, wait);
         };
+    }
+
+    // DEBUG FUNCTION - Remove in production
+    testSearch(query = 'jesus') {
+        console.log('=== MANUAL SEARCH TEST ===');
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.value = query;
+            this.performSearch();
+        } else {
+            console.error('Search input not found for manual test');
+        }
     }
 }
 
