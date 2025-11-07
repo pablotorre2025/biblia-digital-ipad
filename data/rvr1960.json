@@ -20,6 +20,42 @@
       "5": "Y toda planta del campo antes que fuese en la tierra, y toda hierba del campo antes que naciese; porque Jehová Dios aún no había hecho llover sobre la tierra, ni había hombre para que labrase la tierra."
     }
   },
+  "Proverbios": {
+    "3": {
+      "5": "Fíate de Jehová de todo tu corazón, y no te apoyes en tu propia prudencia.",
+      "6": "Reconócelo en todos tus caminos, y él enderezará tus veredas.",
+      "7": "No seas sabio en tu propia opinión; teme a Jehová, y apártate del mal."
+    },
+    "31": {
+      "10": "Mujer virtuosa, ¿quién la hallará? Porque su estima sobrepasa largamente a la de las piedras preciosas.",
+      "25": "Fuerza y honor son su vestidura; y se ríe de lo por venir.",
+      "30": "Engañosa es la gracia, y vana la hermosura; la mujer que teme a Jehová, ésa será alabada."
+    }
+  },
+  "Salmos": {
+    "1": {
+      "1": "Bienaventurado el varón que no anduvo en consejo de malos, ni estuvo en camino de pecadores, ni en silla de escarnecedores se ha sentado;",
+      "2": "Sino que en la ley de Jehová está su delicia, y en su ley medita de día y de noche.",
+      "3": "Será como árbol plantado junto a corrientes de aguas, que da su fruto en su tiempo, y su hoja no cae; y todo lo que hace, prosperará.",
+      "4": "No así los malos, que son como el tamo que arrebata el viento.",
+      "5": "Por tanto, no se levantarán los malos en el juicio, ni los pecadores en la congregación de los justos.",
+      "6": "Porque Jehová conoce el camino de los justos; mas la senda de los malos perecerá."
+    },
+    "23": {
+      "1": "Jehová es mi pastor; nada me faltará.",
+      "2": "En lugares de delicados pastos me hará descansar; junto a aguas de reposo me pastoreará.",
+      "3": "Confortará mi alma; me guiará por sendas de justicia por amor de su nombre.",
+      "4": "Aunque ande en valle de sombra de muerte, no temeré mal alguno, porque tú estarás conmigo; tu vara y tu cayado me infundirán aliento.",
+      "5": "Aderezas mesa delante de mí en presencia de mis angustiadores; unges mi cabeza con aceite; mi copa está rebosando.",
+      "6": "Ciertamente el bien y la misericordia me seguirán todos los días de mi vida, y en la casa de Jehová moraré por largos días."
+    },
+    "91": {
+      "1": "El que habita al abrigo del Altísimo morará bajo la sombra del Omnipotente.",
+      "2": "Diré yo a Jehová: Esperanza mía, y castillo mío; mi Dios, en quien confiaré.",
+      "3": "El te librará del lazo del cazador, de la peste destructora.",
+      "4": "Con sus plumas te cubrirá, y debajo de sus alas estarás seguro; escudo y adarga es su verdad."
+    }
+  },
   "Mateo": {
     "1": {
       "1": "Libro de la genealogía de Jesucristo, hijo de David, hijo de Abraham.",
@@ -27,6 +63,16 @@
       "3": "Judá engendró de Tamar a Fares y a Zara, Fares a Esrom, y Esrom a Aram.",
       "4": "Aram engendró a Aminadab, Aminadab a Naasón, y Naasón a Salmón.",
       "5": "Salmón engendró de Rahab a Booz, Booz engendró de Rut a Obed, y Obed a Isaí."
+    },
+    "5": {
+      "1": "Viendo la multitud, subió al monte; y sentándose, vinieron a él sus discípulos.",
+      "2": "Y abriendo su boca les enseñaba, diciendo:",
+      "3": "Bienaventurados los pobres en espíritu, porque de ellos es el reino de los cielos.",
+      "4": "Bienaventurados los que lloran, porque ellos recibirán consolación.",
+      "5": "Bienaventurados los mansos, porque ellos recibirán la tierra por heredad.",
+      "6": "Bienaventurados los que tienen hambre y sed de justicia, porque ellos serán saciados.",
+      "7": "Bienaventurados los misericordiosos, porque ellos alcanzarán misericordia.",
+      "8": "Bienaventurados los de limpio corazón, porque ellos verán a Dios."
     }
   },
   "Juan": {
@@ -35,7 +81,17 @@
       "2": "Este era en el principio con Dios.",
       "3": "Todas las cosas por él fueron hechas, y sin él nada de lo que ha sido hecho, fue hecho.",
       "4": "En él estaba la vida, y la vida era la luz de los hombres.",
-      "5": "La luz en las tinieblas resplandece, y las tinieblas no prevalecieron contra ella."
+      "5": "La luz en las tinieblas resplandece, y las tinieblas no prevalecieron contra ella.",
+      "14": "Y aquel Verbo fue hecho carne, y habitó entre nosotros (y vimos su gloria, gloria como del unigénito del Padre), lleno de gracia y de verdad."
+    },
+    "3": {
+      "16": "Porque de tal manera amó Dios al mundo, que ha dado a su Hijo unigénito, para que todo aquel que en él cree, no se pierda, mas tenga vida eterna.",
+      "17": "Porque no envió Dios a su Hijo al mundo para condenar al mundo, sino para que el mundo sea salvo por él."
+    },
+    "14": {
+      "1": "No se turbe vuestro corazón; creéis en Dios, creed también en mí.",
+      "2": "En la casa de mi Padre muchas moradas hay; si así no fuera, yo os lo hubiera dicho; voy, pues, a preparar lugar para vosotros.",
+      "6": "Jesús le dijo: Yo soy el camino, y la verdad, y la vida; nadie viene al Padre, sino por mí."
     }
   }
 }
