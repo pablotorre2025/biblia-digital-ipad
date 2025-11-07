@@ -24,7 +24,7 @@
                 <select id="versionSelector" class="version-selector">
                     <option value="">Seleccionar versión...</option>
                 </select>
-                <button id="favoritesBtn" class="icon-btn" title="Favoritos" onclick="openFavorites()">🔖</button>
+                <button id="favoritesBtn" class="icon-btn" title="Favoritos" onclick="showFavorites()">🔖</button>
                 <button id="notesBtn" class="icon-btn" title="Notas" onclick="openNotesViewer()">📝</button>
                 <button id="themesBtn" class="icon-btn" title="Temas" onclick="openThemeSettings()">🎨</button>
                 <button id="compareBtn" class="icon-btn" title="Comparar versiones">🔄</button>
@@ -2077,6 +2077,244 @@
         function exportThemeSettings() {
             themeManager.exportSettings();
             showToast('📤 Configuración de tema exportada', 'success');
+        }
+        
+        // === FUNCIÓN SIMPLE Y DIRECTA PARA FAVORITOS ===
+        function showFavorites() {
+            console.log('🔖 Abriendo favoritos...');
+            
+            try {
+                // Cargar favoritos del localStorage
+                const favoritesData = localStorage.getItem('bible-favorites');
+                let favorites = favoritesData ? JSON.parse(favoritesData) : [];
+                
+                console.log('Favoritos encontrados:', favorites.length);
+                
+                // Crear modal simple
+                let modal = document.getElementById('simpleFavoritesModal');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'simpleFavoritesModal';
+                    modal.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0,0,0,0.6);
+                        z-index: 1005;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    `;
+                    document.body.appendChild(modal);
+                }
+                
+                if (favorites.length === 0) {
+                    modal.innerHTML = `
+                        <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 80%; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                            <div style="padding: 25px; text-align: center; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white;">
+                                <h2 style="margin: 0; font-size: 24px;">⭐ Mis Favoritos</h2>
+                                <p style="margin: 8px 0 0 0; opacity: 0.9;">Tu colección personal de versículos</p>
+                            </div>
+                            <div style="padding: 40px; text-align: center;">
+                                <div style="font-size: 64px; margin-bottom: 20px; opacity: 0.3;">📖</div>
+                                <h3 style="color: #666; margin-bottom: 15px;">No tienes favoritos aún</h3>
+                                <p style="color: #888; margin-bottom: 25px; line-height: 1.6;">
+                                    💡 Para agregar versículos a favoritos:<br>
+                                    1. Navega a cualquier versículo<br>
+                                    2. Busca la estrella ⭐ junto al número del versículo<br>
+                                    3. Haz clic en ella<br>
+                                    4. ¡Tu versículo se guardará aquí!
+                                </p>
+                                <button onclick="closeFavorites()" style="background: #4285f4; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px;">
+                                    Entendido
+                                </button>
+                                <br><br>
+                                <p style="color: #999; font-size: 14px;">
+                                    📍 Los favoritos se guardan automáticamente en tu dispositivo
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const favoritesHtml = favorites.map((fav, index) => `
+                        <div style="padding: 16px; border-bottom: 1px solid #e0e0e0; cursor: pointer; transition: background 0.2s;" 
+                             onclick="navigateToFavorite('${fav.book}', ${fav.chapter}, ${fav.verse})"
+                             onmouseover="this.style.background='#f8f9fa'" 
+                             onmouseout="this.style.background='white'">
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                <div style="flex: 1;">
+                                    <strong style="color: #1976d2; font-size: 16px;">
+                                        ${fav.reference || `${fav.book} ${fav.chapter}:${fav.verse}`}
+                                    </strong>
+                                    <div style="background: linear-gradient(135deg, #4285f4, #34a853); color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; display: inline-block; margin-left: 8px;">
+                                        ${fav.version || 'Versión'}
+                                    </div>
+                                </div>
+                                
+                                <button onclick="event.stopPropagation(); removeFavoriteSimple(${index})" 
+                                        style="background: #ff4444; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; min-width: 60px;"
+                                        onmouseover="this.style.background='#cc0000'"
+                                        onmouseout="this.style.background='#ff4444'">
+                                    🗑️ Quitar
+                                </button>
+                            </div>
+                            
+                            <div style="color: #666; font-size: 12px; margin-bottom: 8px;">
+                                📅 Agregado: ${fav.dateAdded ? new Date(fav.dateAdded).toLocaleDateString('es-ES', { 
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                }) : 'Fecha no disponible'}
+                            </div>
+                            
+                            <div style="line-height: 1.6; color: #333; font-style: italic;">
+                                "${(fav.text || 'Texto del versículo').substring(0, 200)}${fav.text && fav.text.length > 200 ? '...' : ''}"
+                            </div>
+                        </div>
+                    `).join('');
+                    
+                    modal.innerHTML = `
+                        <div style="background: white; border-radius: 12px; max-width: 90%; max-height: 85%; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.3);">
+                            
+                            <div style="padding: 20px; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <h2 style="margin: 0; font-size: 22px;">⭐ Mis Favoritos</h2>
+                                        <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">
+                                            ${favorites.length} versículo${favorites.length !== 1 ? 's' : ''} guardado${favorites.length !== 1 ? 's' : ''}
+                                        </p>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <button onclick="exportFavoritesSimple()" 
+                                                style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                                            📤 Exportar
+                                        </button>
+                                        <button onclick="closeFavorites()" 
+                                                style="background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 18px; width: 36px; height: 36px;">
+                                            ✕
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="max-height: 65vh; overflow-y: auto;">
+                                ${favoritesHtml}
+                            </div>
+                            
+                            <div style="padding: 15px; background: #f8f9fa; border-top: 1px solid #e0e0e0; text-align: center;">
+                                <div style="color: #666; font-size: 13px; margin-bottom: 5px;">
+                                    💡 Haz clic en cualquier referencia para ir al versículo
+                                </div>
+                                <div style="color: #888; font-size: 12px;">
+                                    Los favoritos se guardan automáticamente en tu dispositivo
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                modal.style.display = 'flex';
+                
+            } catch (error) {
+                console.error('Error al mostrar favoritos:', error);
+                alert('❌ Error al cargar favoritos. Revisa la consola para más detalles.');
+            }
+        }
+        
+        function closeFavorites() {
+            const modal = document.getElementById('simpleFavoritesModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        function removeFavoriteSimple(index) {
+            if (confirm('¿Estás seguro de que quieres quitar este versículo de favoritos?')) {
+                try {
+                    const favoritesData = localStorage.getItem('bible-favorites');
+                    let favorites = favoritesData ? JSON.parse(favoritesData) : [];
+                    
+                    if (index >= 0 && index < favorites.length) {
+                        favorites.splice(index, 1);
+                        localStorage.setItem('bible-favorites', JSON.stringify(favorites));
+                        showToast('🗑️ Versículo quitado de favoritos', 'info');
+                        showFavorites(); // Refrescar la lista
+                    }
+                } catch (error) {
+                    console.error('Error al quitar favorito:', error);
+                    alert('❌ Error al quitar el favorito.');
+                }
+            }
+        }
+        
+        function exportFavoritesSimple() {
+            try {
+                const favoritesData = localStorage.getItem('bible-favorites');
+                const favorites = favoritesData ? JSON.parse(favoritesData) : [];
+                
+                const exportData = {
+                    exportDate: new Date().toISOString(),
+                    totalFavorites: favorites.length,
+                    favorites: favorites
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `biblia-favoritos-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+                
+                showToast('📤 Favoritos exportados exitosamente', 'success');
+            } catch (error) {
+                console.error('Error al exportar favoritos:', error);
+                alert('❌ Error al exportar favoritos.');
+            }
+        }
+        
+        function navigateToFavorite(book, chapter, verse) {
+            console.log(`Navegando a: ${book} ${chapter}:${verse}`);
+            closeFavorites();
+            
+            if (window.bibleApp) {
+                window.bibleApp.selectBook(book).then(() => {
+                    setTimeout(() => {
+                        window.bibleApp.loadChapter(book, parseInt(chapter)).then(() => {
+                            setTimeout(() => {
+                                const verseElement = document.querySelector(`[data-verse="${verse}"]`);
+                                if (verseElement) {
+                                    verseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    
+                                    // Resaltar versículo
+                                    verseElement.style.background = 'linear-gradient(135deg, #ff6b35, #f7931e)';
+                                    verseElement.style.color = 'white';
+                                    verseElement.style.padding = '12px';
+                                    verseElement.style.borderRadius = '8px';
+                                    verseElement.style.transform = 'scale(1.02)';
+                                    verseElement.style.transition = 'all 0.3s ease';
+                                    verseElement.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.3)';
+                                    
+                                    setTimeout(() => {
+                                        verseElement.style.background = '';
+                                        verseElement.style.color = '';
+                                        verseElement.style.padding = '';
+                                        verseElement.style.transform = '';
+                                        verseElement.style.boxShadow = '';
+                                    }, 4000);
+                                }
+                            }, 500);
+                        });
+                    }, 200);
+                });
+            } else {
+                alert('📍 App no disponible. Recarga la página y selecciona una versión bíblica primero.');
+            }
         }
     </script>
     
